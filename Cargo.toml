@@ -1,0 +1,42 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[package]
+name = "cgp-api"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-or-later"
+description = "Generic application layer on top of cgp-orm: error-mapping policies, resource-service presets, and transport-independent response helpers"
+keywords = ["cgp", "sea-orm", "repository", "api"]
+categories = ["database", "rust-patterns", "asynchronous"]
+readme = "README.md"
+documentation = "https://docs.rs/cgp-api"
+repository = "https://github.com/Just-Replicant/cgp-api"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lib]
+name = "cgp_api"
+path = "src/lib.rs"
+
+[features]
+default = ["thiserror"]
+thiserror = ["dep:thiserror"]
+rest = ["dep:axum"]
+grpc = ["dep:tonic"]
+
+[dependencies]
+axum = { version = "0.8", optional = true }
+cgp-fork = "1"
+cgp-orm = { path = "../cgp-orm", version = "0.1.0" }
+sea-orm = { version = "2", default-features = false }
+thiserror = { version = "2", optional = true }
+tonic = { version = "0.14", optional = true, default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+cgp-fork = "1"
