@@ -1,0 +1,28 @@
+[package]
+name = "cgp-api-example-blog"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Example: UUID-key users and distinct Create/Update/Output DTOs, plus a composite-key favorite"
+
+[lib]
+name = "blog_example"
+path = "src/lib.rs"
+
+[dependencies]
+cgp-api = { path = "../..", default-features = false, features = ["thiserror"] }
+cgp-fork = "1.1"
+cgp-orm = { path = "../../../cgp-orm", version = "0.1.0" }
+sea-orm = { version = "2", default-features = false, features = ["macros", "with-uuid"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+sea-orm = { version = "2", default-features = false, features = [
+    "sqlx-sqlite",
+    "runtime-tokio",
+    "macros",
+    "with-uuid",
+] }
