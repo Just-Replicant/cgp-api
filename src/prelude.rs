@@ -15,10 +15,16 @@ pub use crate::error::{
     ApiError, RaiseApiMessage, RaiseIdentityFieldUnset, RaisePrimaryKeyUnset, RaiseViaApiError,
     WrapApiError, WrapDetail,
 };
+#[cfg(any(feature = "rest", feature = "grpc"))]
+pub use crate::error::{INTERNAL_ERROR_MESSAGE, UnexpectedMessage};
 #[cfg(feature = "grpc")]
-pub use crate::error::{RaiseGrpcInternal, RaiseGrpcInvalidArgument, RaiseGrpcNotFound};
+pub use crate::error::{
+    RaiseGrpcInternal, RaiseGrpcInternalDisplay, RaiseGrpcInvalidArgument, RaiseGrpcNotFound,
+};
 #[cfg(feature = "rest")]
-pub use crate::error::{RaiseRestBadRequest, RaiseRestInternal, RaiseRestNotFound};
+pub use crate::error::{
+    RaiseRestBadRequest, RaiseRestInternal, RaiseRestInternalDisplay, RaiseRestNotFound,
+};
 #[cfg(feature = "thiserror")]
 pub use crate::presets::{ApiCrudStack, ApiErrors, ApiLookupStack, ApiResourceStack};
 #[cfg(feature = "grpc")]

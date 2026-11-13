@@ -53,10 +53,8 @@ fn rest_error_converts_to_axum_pair() {
     use axum::http::StatusCode;
     use cgp_api::error::RestError;
 
-    let error = RestError {
-        status: StatusCode::NOT_FOUND,
-        message: "missing".into(),
-    };
+    let error = RestError::new(StatusCode::NOT_FOUND, "missing");
+    assert_eq!(error.to_string(), "missing");
     let (status, message): (StatusCode, String) = error.into();
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(message, "missing");
