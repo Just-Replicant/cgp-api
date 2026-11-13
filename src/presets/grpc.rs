@@ -23,7 +23,8 @@ use crate::error::{
     WrapGrpcStatus,
 };
 
-/// Shared gRPC error table.
+/// Shared gRPC error table. Contexts inherit the three error components
+/// through [`GrpcErrorPolicy`].
 pub struct GrpcErrors;
 
 delegate_components! {
@@ -53,5 +54,24 @@ delegate_components! {
         ]: RaiseGrpcInvalidArgument,
         @ErrorRaiserComponent.<Column> ErrIdentityFieldUnset<Column>: RaiseGrpcInvalidArgument,
         @ErrorRaiserComponent.<Column> ErrPrimaryKeyUnset<Column>: RaiseGrpcInvalidArgument,
+    }
+}
+
+// Forwards the three error components to `GrpcErrors`.
+// Compose with a cgp-orm stack; this policy does not wrap an ORM parent.
+cgp_preset! {
+    GrpcErrorPolicy {
+        ::cgp_fork::core::error::ErrorTypeProviderComponent:
+            <cgp_api::presets::GrpcErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorTypeProviderComponent,
+            >>::Delegate,
+        ::cgp_fork::core::error::ErrorRaiserComponent:
+            <cgp_api::presets::GrpcErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorRaiserComponent,
+            >>::Delegate,
+        ::cgp_fork::core::error::ErrorWrapperComponent:
+            <cgp_api::presets::GrpcErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorWrapperComponent,
+            >>::Delegate,
     }
 }
