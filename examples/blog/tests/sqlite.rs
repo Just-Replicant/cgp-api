@@ -40,13 +40,14 @@ async fn user_uuid_create_get_update_and_get_or_create() {
     let (users, _, _, _) = setup().await;
     assert_eq!(users.entity_name(), "users");
 
-    let created = users
+    let (created, outcome) = users
         .create(CreateUser {
             email: "ada@example.com".into(),
             name: "Ada".into(),
         })
         .await
         .expect("create");
+    assert_eq!(outcome, InsertOutcome::Inserted);
     assert_ne!(created.id, Uuid::nil());
     assert_eq!(created.email, "ada@example.com");
     assert_eq!(created.name, "Ada");
@@ -70,7 +71,7 @@ async fn user_uuid_create_get_update_and_get_or_create() {
     assert_eq!(updated.id, created.id);
 
     let (again, outcome) = users
-        .get_or_create(CreateUser {
+        .create(CreateUser {
             email: "ada@example.com".into(),
             name: "Someone else".into(),
         })
@@ -86,7 +87,7 @@ async fn post_distinct_dtos_and_list() {
     let (users, posts, _, _) = setup().await;
     assert_eq!(posts.entity_name(), "posts");
 
-    let author = users
+    let (author, _) = users
         .create(CreateUser {
             email: "grace@example.com".into(),
             name: "Grace".into(),
@@ -94,7 +95,7 @@ async fn post_distinct_dtos_and_list() {
         .await
         .unwrap();
 
-    let first = posts
+    let (first, _) = posts
         .create(CreatePost {
             author_id: author.id,
             slug: "hello".into(),
@@ -124,7 +125,7 @@ async fn post_distinct_dtos_and_list() {
     assert_eq!(updated.slug, "hello");
     assert_eq!(updated.author_id, author.id);
 
-    posts
+    let (_second, _) = posts
         .create(CreatePost {
             author_id: author.id,
             slug: "second".into(),
@@ -147,18 +148,18 @@ async fn post_distinct_dtos_and_list() {
 }
 
 #[tokio::test]
-async fn favorite_composite_key_insert_or_get() {
+async fn favorite_composite_key_get_or_create() {
     let (users, posts, favorites, _) = setup().await;
     assert_eq!(favorites.entity_name(), "favorites");
 
-    let user = users
+    let (user, _) = users
         .create(CreateUser {
             email: "alan@example.com".into(),
             name: "Alan".into(),
         })
         .await
         .unwrap();
-    let post = posts
+    let (post, _) = posts
         .create(CreatePost {
             author_id: user.id,
             slug: "notes".into(),
@@ -169,7 +170,7 @@ async fn favorite_composite_key_insert_or_get() {
         .unwrap();
 
     let (first, outcome) = favorites
-        .insert_or_get(favorite::ActiveModel {
+        .get_or_create(favorite::ActiveModel {
             user_id: Set(user.id),
             post_id: Set(post.id),
             note: Set("keep".into()),
@@ -180,7 +181,7 @@ async fn favorite_composite_key_insert_or_get() {
     assert_eq!(first.note, "keep");
 
     let (again, outcome) = favorites
-        .insert_or_get(favorite::ActiveModel {
+        .get_or_create(favorite::ActiveModel {
             user_id: Set(user.id),
             post_id: Set(post.id),
             note: Set("changed".into()),
@@ -194,17 +195,17 @@ async fn favorite_composite_key_insert_or_get() {
     assert_eq!(again.note, "keep");
 
     let found = favorites
-        .find_by_id((user.id, post.id))
+        .get_by_id((user.id, post.id))
         .await
-        .expect("find_by_id")
+        .expect("get_by_id")
         .expect("present");
     assert_eq!(found.note, "keep");
 }
 
 #[tokio::test]
-async fn post_create_conflict_is_an_error() {
+async fn post_create_duplicate_slug_returns_existing() {
     let (users, posts, _, _) = setup().await;
-    let author = users
+    let (author, _) = users
         .create(CreateUser {
             email: "x@example.com".into(),
             name: "X".into(),
@@ -217,14 +218,16 @@ async fn post_create_conflict_is_an_error() {
         title: "A".into(),
         body: "".into(),
     };
-    posts.create(input.clone()).await.expect("first");
-    let err = posts.create(input).await.expect_err("duplicate slug");
-    let message = err.to_string();
-    assert!(
-        message.contains("unique")
-            || message.contains("UNIQUE")
-            || message.contains("constraint")
-            || message.contains("conflict"),
-        "unexpected error: {message}"
-    );
+    let (first, outcome) = posts.create(input.clone()).await.expect("first");
+    assert_eq!(outcome, InsertOutcome::Inserted);
+    let (again, outcome) = posts
+        .create(CreatePost {
+            title: "B".into(),
+            ..input
+        })
+        .await
+        .expect("duplicate slug");
+    assert_eq!(outcome, InsertOutcome::Existing);
+    assert_eq!(again.id, first.id);
+    assert_eq!(again.title, "A");
 }
