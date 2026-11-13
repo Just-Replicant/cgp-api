@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- *(presets)* The nine `*LookupStack` / `*CrudStack` / `*ResourceStack`
+  types are removed. Publish one policy preset per error table —
+  `ApiErrorPolicy`, `RestErrorPolicy`, `GrpcErrorPolicy` — and compose
+  it with the `cgp-orm` stacks: `RepositoryCrudStack +
+  ResourceServiceStack + ApiErrorPolicy`, or
+  `RepositoryLookupStack + ApiErrorPolicy`. The three error-component
+  wirings are unchanged.
+- *(macro)* `entity_name!` expands to a tag plus an `EntityNameValue`
+  impl. It no longer implements `EntityNameGetter` itself. Wire
+  `ConstEntityName<Tag>` as the `EntityNameGetterComponent` provider.
+
 ### Fixed
 
 - *(error)* `RaiseRestInternal` and `RaiseGrpcInternal` no longer put
@@ -14,18 +27,22 @@
 
 ### Added
 
+- *(macros)* Optional `macros` feature and the `cgp-api-macros` crate.
+  `#[entity_api]` generates a context (base preset, stack preset, struct,
+  `new`, `delegate_components!`, and checks) from an entity, a policy or
+  stack, and identity. Error policies and application stacks stay
+  handwritten. `cfg` is opt-in. `policy = grpc` names
+  `cgp_api::error::Status`, a re-export of `tonic::Status`.
 - *(error)* A compiling extension test: one application error raised
   through a child table that embeds `ApiError` and uses `RaiseViaApiError`,
   without copying `ApiErrors`.
 - *(docs)* How to return 404 via the opt-in `get_or_not_found` helper
   in `cgp-orm`. `CanGetResource::get` stays `Option`.
-- *(examples)* A blog test that builds a `RestResourceStack` context
+- *(examples)* A blog test that builds a `RestErrorPolicy` context
   on SQLite and checks a unique-conflict as `RestError`.
 - *(ci)* One CI job runs `fmt --all --check`, `clippy --workspace
   --all-targets --all-features -- -D warnings`, and `test --workspace
   --all-targets --all-features`.
-- *(macro)* `entity_name!` invokes `#[::cgp_fork::prelude::cgp_impl]`,
-  so the call site does not need the prelude.
 
 ### Documentation
 
@@ -36,7 +53,7 @@
   that key. Point at `cgp-orm::transaction::run_in_transaction`.
 - Examples are under the parent AGPL; `HasEntityName` is a compile-time
   literal; this crate does not authenticate (no `CanAuthorize`).
-- Key list on `ApiResourceStack` rustdoc; fully qualified component
+- Key list on the presets module rustdoc; fully qualified component
   keys are kept.
 
 

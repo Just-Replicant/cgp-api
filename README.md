@@ -1,7 +1,7 @@
 # cgp-api
 
 Generic application layer on top of [`cgp-orm`](https://crates.io/crates/cgp-orm): error-mapping
-policies, composable resource-service presets, and transport-independent
+policies, error-policy presets composed with `cgp-orm` stacks, and transport-independent
 response helpers.
 
 **This crate has no domain model.** An application chooses entities,
@@ -21,9 +21,10 @@ Adopting the split from an earlier mixed layout:
 
 | Feature | Default | What it enables |
 | --- | --- | --- |
-| `thiserror` | yes | `ApiError`, `ApiErrors`, `ApiLookupStack`, `ApiCrudStack`, `ApiResourceStack` |
-| `rest` | no | `RestError`, Axum raisers, `RestLookupStack`, `RestCrudStack`, `RestResourceStack` |
-| `grpc` | no | tonic `Status` raisers, `GrpcLookupStack`, `GrpcCrudStack`, `GrpcResourceStack` |
+| `thiserror` | yes | `ApiError`, `ApiErrors`, `ApiErrorPolicy` |
+| `rest` | no | `RestError`, Axum raisers, `RestErrorPolicy` |
+| `grpc` | no | tonic `Status` raisers, `GrpcErrorPolicy` |
+| `macros` | no | `#[entity_api]` (re-exported from `cgp-api-macros`) |
 
 Response helpers (`ResourceResponse`, `response_from`,
 `response_from_page`) are always available and generic over the
@@ -35,7 +36,7 @@ payload. They are not tied to protobuf.
 use cgp_api::prelude::*;
 
 cgp_preset! {
-    PostAppPreset: ApiResourceStack {
+    PostAppPreset: RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy {
         EntityTypeProviderComponent: UseType<post::Entity>,
         CreateInputTypeProviderComponent: UseType<CreatePost>,
         UpdateInputTypeProviderComponent: UseType<UpdatePost>,
@@ -46,7 +47,7 @@ cgp_preset! {
             EncodeOutputComponent,
         ]: PostCodec,
         UniqueColumnsGetterComponent: PostUniqueColumns,
-        EntityNameGetterComponent: PostEntityName,
+        EntityNameGetterComponent: ConstEntityName<PostEntityName>,
     }
 }
 
@@ -66,6 +67,39 @@ uses `insert_or_get` and requires a real unique constraint matching
 the identity policy. Input and output types are whatever the
 application supplies — they do not have to be the same type.
 
+With the `macros` feature, the same context can be generated. The
+attribute produces a context only; error policies and application
+stacks stay handwritten. `policy` + `layer` expand to the `cgp-orm`
+parents plus the matching error policy (the nine stacked types are
+gone):
+
+```rust,ignore
+#[cgp_api::entity_api(
+    policy = api,                 // or rest, grpc, or a custom policy path
+    layer = resource,             // lookup | crud | resource (default)
+    entity = post::Entity,
+    create = CreatePost,
+    update = UpdatePost,
+    output = PostOutput,
+    codec = PostCodec,
+    unique = PostUniqueColumns,
+    name = PostEntityName,        // wires ConstEntityName<PostEntityName>
+    also(PostRestApi: rest, PostGrpcApi: grpc),
+)]
+pub struct PostApi {
+    pub db_conn: sea_orm::DatabaseConnection,
+}
+```
+
+`stack =` takes a single path or a `+`-sum, and then `error` is
+required: `stack = RepositoryCrudStack + ResourceServiceStack +
+RfErrorPolicy`. A path `policy` is combined with `layer`; `error` is
+required. `cfg` is never implied — set `cfg = "rest"` only when the
+consumer crate should compile that context behind a feature of its
+own. `policy = api` / `rest` / `grpc` still needs the matching feature
+on the `cgp-api` dependency. The struct must have a `db_conn` field.
+`name = Tag` wires `ConstEntityName<Tag>`.
+
 ## Examples
 
 This package is a workspace. The examples are separate crates that
@@ -83,10 +117,15 @@ cargo fmt --all --check
 
 ## What lives here, not in `cgp-orm`
 
-- Error maps and stacked presets (`ApiError` / REST / gRPC) — application
-  *policy*, still domain-agnostic
+- Error maps and error-policy presets (`ApiErrorPolicy` / `RestErrorPolicy`
+  / `GrpcErrorPolicy`) — application *policy*, still domain-agnostic.
+  Compose them with the `cgp-orm` stacks (`RepositoryCrudStack +
+  ResourceServiceStack + ApiErrorPolicy`, or
+  `RepositoryLookupStack + ApiErrorPolicy`).
 - `HasEntityName` and `ConstEntityName` — the name is chosen by the
-  consumer
+  consumer. `entity_name!` declares a tag; wire `ConstEntityName<Tag>`.
+- `#[entity_api]` (feature `macros`) — generates a context. Error
+  policies and application stacks stay handwritten.
 - Transport-independent `ResourceResponse` helpers
 - Re-exported codec traits (`CanDecodeCreateInput`, …)
 
