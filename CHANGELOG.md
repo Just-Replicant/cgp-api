@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/Just-Replicant/cgp-api/compare/v0.1.1...v0.1.2) - 2026-11-13
+
+### Added
+
+- *(macros)* add entity_api and optional macros feature
+
+### Changed
+
+- *(examples)* compose cgp-orm stacks with error policies
+- *(names)* make entity_name emit tags for ConstEntityName
+- *(presets)* replace stacked presets with error-policy presets
+
+### Documentation
+
+- document error policies and entity_api
+- document opaque errors, 404 helper, semver, and include_str docs
+
+### Fixed
+
+- *(macro)* invoke cgp_impl via absolute path in entity_name
+- *(error)* keep DbErr opaque at REST and gRPC boundaries
+
 ### Breaking
 
 - *(presets)* The nine `*LookupStack` / `*CrudStack` / `*ResourceStack`
