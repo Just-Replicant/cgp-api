@@ -231,3 +231,94 @@ async fn post_create_duplicate_slug_returns_existing() {
     assert_eq!(again.id, first.id);
     assert_eq!(again.title, "A");
 }
+
+/// Genericity proof: a `RestResourceStack` context on SQLite, with a unique
+/// conflict surfaced as [`RestError`]. SeaORM sqlite and entity macros stay
+/// in this example's dev-dependencies, not in `cgp-api`.
+mod rest_stack {
+    use core::error::Error;
+
+    use blog_example::codec::UserCodec;
+    use blog_example::dto::{CreateUser, UpdateUser, UserOutput};
+    use blog_example::entity::user;
+    use blog_example::identity::{UserEntityName, UserUniqueColumns};
+    use cgp_api::error::{INTERNAL_ERROR_MESSAGE, RestError};
+    use cgp_api::prelude::*;
+    use cgp_api::presets::RestResourceStack;
+    use sea_orm::Set;
+    use uuid::Uuid;
+
+    use super::{connect, create_table};
+
+    cgp_preset! {
+        UserRestPreset: RestResourceStack {
+            cgp_orm::types::EntityTypeProviderComponent:
+                UseType<user::Entity>,
+            cgp_orm::components::service::CreateInputTypeProviderComponent:
+                UseType<CreateUser>,
+            cgp_orm::components::service::UpdateInputTypeProviderComponent:
+                UseType<UpdateUser>,
+            cgp_orm::components::service::OutputTypeProviderComponent:
+                UseType<UserOutput>,
+            [
+                cgp_orm::components::DecodeCreateInputComponent,
+                cgp_orm::components::ApplyUpdateInputComponent,
+                cgp_orm::components::EncodeOutputComponent,
+            ]: UserCodec,
+            cgp_orm::accessors::UniqueColumnsGetterComponent:
+                UserUniqueColumns,
+            cgp_api::accessors::EntityNameGetterComponent:
+                UserEntityName,
+        }
+    }
+
+    #[derive(HasField, Clone)]
+    struct UserRestApp {
+        pub db_conn: sea_orm::DatabaseConnection,
+    }
+
+    delegate_components! {
+        #[unchecked]
+        UserRestApp {
+            preset UserRestPreset,
+        }
+    }
+
+    #[tokio::test]
+    async fn rest_resource_stack_unique_conflict_is_rest_error() {
+        let db = connect().await;
+        create_table(&db, user::Entity).await;
+        let users = UserRestApp { db_conn: db };
+
+        let first = user::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            email: Set("ada@example.com".into()),
+            name: Set("Ada".into()),
+        };
+        users.insert(first).await.expect("first insert");
+
+        let conflict = user::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            email: Set("ada@example.com".into()),
+            name: Set("Someone else".into()),
+        };
+        let error: RestError = users
+            .insert(conflict)
+            .await
+            .expect_err("duplicate email is a unique conflict");
+
+        assert_eq!(error.status.as_u16(), 500);
+        assert_eq!(error.message, INTERNAL_ERROR_MESSAGE);
+        assert_eq!(error.to_string(), INTERNAL_ERROR_MESSAGE);
+        let message = error.message.clone();
+        let pair: (_, String) = error.clone().into();
+        assert_eq!(pair.1, message);
+        let source = error.source().expect("original DbErr");
+        let text = source.to_string();
+        assert!(
+            text.to_lowercase().contains("unique") || text.to_lowercase().contains("constraint"),
+            "in-process source should still describe the unique conflict, got {text}"
+        );
+        assert!(source.downcast_ref::<sea_orm::DbErr>().is_some());
+    }
+}
