@@ -232,9 +232,10 @@ async fn post_create_duplicate_slug_returns_existing() {
     assert_eq!(again.title, "A");
 }
 
-/// Genericity proof: a `RestResourceStack` context on SQLite, with a unique
-/// conflict surfaced as [`RestError`]. SeaORM sqlite and entity macros stay
-/// in this example's dev-dependencies, not in `cgp-api`.
+/// Genericity proof: a `RepositoryCrudStack + ResourceServiceStack +
+/// RestErrorPolicy` context on SQLite, with a unique conflict surfaced
+/// as [`RestError`]. SeaORM sqlite and entity macros stay in this
+/// example's dev-dependencies, not in `cgp-api`.
 mod rest_stack {
     use core::error::Error;
 
@@ -244,14 +245,16 @@ mod rest_stack {
     use blog_example::identity::{UserEntityName, UserUniqueColumns};
     use cgp_api::error::{INTERNAL_ERROR_MESSAGE, RestError};
     use cgp_api::prelude::*;
-    use cgp_api::presets::RestResourceStack;
+    use cgp_api::presets::RestErrorPolicy;
+    use cgp_api::providers::ConstEntityName;
+    use cgp_orm::presets::{RepositoryCrudStack, ResourceServiceStack};
     use sea_orm::Set;
     use uuid::Uuid;
 
     use super::{connect, create_table};
 
     cgp_preset! {
-        UserRestPreset: RestResourceStack {
+        UserRestPreset: RepositoryCrudStack + ResourceServiceStack + RestErrorPolicy {
             cgp_orm::types::EntityTypeProviderComponent:
                 UseType<user::Entity>,
             cgp_orm::components::service::CreateInputTypeProviderComponent:
@@ -268,7 +271,7 @@ mod rest_stack {
             cgp_orm::accessors::UniqueColumnsGetterComponent:
                 UserUniqueColumns,
             cgp_api::accessors::EntityNameGetterComponent:
-                UserEntityName,
+                ConstEntityName<UserEntityName>,
         }
     }
 
@@ -285,7 +288,7 @@ mod rest_stack {
     }
 
     #[tokio::test]
-    async fn rest_resource_stack_unique_conflict_is_rest_error() {
+    async fn rest_error_policy_unique_conflict_is_rest_error() {
         let db = connect().await;
         create_table(&db, user::Entity).await;
         let users = UserRestApp { db_conn: db };

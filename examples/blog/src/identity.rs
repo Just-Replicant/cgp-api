@@ -39,8 +39,7 @@ impl UniqueColumnsGetter {
     }
 }
 
-// Absolute `#[::cgp_fork::prelude::cgp_impl]` inside the macro: no prelude
-// `cgp_impl` import is required at this call site.
+// Tags only: wire `ConstEntityName<…>` at the context preset.
 cgp_api::entity_name!(UserEntityName, "users");
 cgp_api::entity_name!(PostEntityName, "posts");
 cgp_api::entity_name!(FavoriteEntityName, "favorites");
