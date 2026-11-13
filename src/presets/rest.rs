@@ -35,7 +35,8 @@ use crate::error::{
     WrapRestError,
 };
 
-/// Shared REST error table.
+/// Shared REST error table. Contexts inherit the three error components
+/// through [`RestErrorPolicy`].
 pub struct RestErrors;
 
 delegate_components! {
@@ -65,5 +66,24 @@ delegate_components! {
         ]: RaiseRestBadRequest,
         @ErrorRaiserComponent.<Column> ErrIdentityFieldUnset<Column>: RaiseRestBadRequest,
         @ErrorRaiserComponent.<Column> ErrPrimaryKeyUnset<Column>: RaiseRestBadRequest,
+    }
+}
+
+// Forwards the three error components to `RestErrors`.
+// Compose with a cgp-orm stack; this policy does not wrap an ORM parent.
+cgp_preset! {
+    RestErrorPolicy {
+        ::cgp_fork::core::error::ErrorTypeProviderComponent:
+            <cgp_api::presets::RestErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorTypeProviderComponent,
+            >>::Delegate,
+        ::cgp_fork::core::error::ErrorRaiserComponent:
+            <cgp_api::presets::RestErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorRaiserComponent,
+            >>::Delegate,
+        ::cgp_fork::core::error::ErrorWrapperComponent:
+            <cgp_api::presets::RestErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorWrapperComponent,
+            >>::Delegate,
     }
 }

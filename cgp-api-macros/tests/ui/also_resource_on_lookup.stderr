@@ -1,0 +1,5 @@
+error: `also(PostResource: …, layer = resource)` needs `create`, `update`, `output`, and a codec on this annotation; those fields live on the shared base, so the primary context has to be `layer = resource` or an explicit stack that sets them
+ --> tests/ui/also_resource_on_lookup.rs:8:10
+  |
+8 |     also(PostResource: rest, layer = resource),
+  |          ^^^^^^^^^^^^

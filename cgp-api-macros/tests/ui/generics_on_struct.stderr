@@ -1,0 +1,5 @@
+error: `#[entity_api]` does not support generic context structs
+ --> tests/ui/generics_on_struct.rs:9:19
+  |
+9 | pub struct PostApi<T> {
+  |                   ^

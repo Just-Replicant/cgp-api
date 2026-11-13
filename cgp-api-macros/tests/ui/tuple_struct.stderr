@@ -1,0 +1,5 @@
+error: `#[entity_api]` requires a named-field struct, not a tuple struct
+ --> tests/ui/tuple_struct.rs:9:1
+  |
+9 | pub struct PostApi(pub u32);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

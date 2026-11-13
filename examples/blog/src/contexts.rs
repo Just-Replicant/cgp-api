@@ -1,7 +1,9 @@
-//! Explicit App contexts composed from `cgp-api` stacked presets.
+//! Explicit App contexts composed from `cgp-orm` stacks and `ApiErrorPolicy`.
 
-use cgp_api::presets::{ApiCrudStack, ApiResourceStack};
+use cgp_api::presets::ApiErrorPolicy;
+use cgp_api::providers::ConstEntityName;
 use cgp_fork::prelude::*;
+use cgp_orm::presets::{RepositoryCrudStack, ResourceServiceStack};
 
 use crate::codec::{PostCodec, UserCodec};
 use crate::dto::{CreatePost, CreateUser, PostOutput, UpdatePost, UpdateUser, UserOutput};
@@ -12,7 +14,7 @@ use crate::identity::{
 };
 
 cgp_preset! {
-    UserAppPreset: ApiResourceStack {
+    UserAppPreset: RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy {
         cgp_orm::types::EntityTypeProviderComponent:
             UseType<user::Entity>,
         cgp_orm::components::service::CreateInputTypeProviderComponent:
@@ -29,7 +31,7 @@ cgp_preset! {
         cgp_orm::accessors::UniqueColumnsGetterComponent:
             UserUniqueColumns,
         cgp_api::accessors::EntityNameGetterComponent:
-            UserEntityName,
+            ConstEntityName<UserEntityName>,
     }
 }
 
@@ -55,7 +57,7 @@ delegate_components! {
 }
 
 cgp_preset! {
-    PostAppPreset: ApiResourceStack {
+    PostAppPreset: RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy {
         cgp_orm::types::EntityTypeProviderComponent:
             UseType<post::Entity>,
         cgp_orm::components::service::CreateInputTypeProviderComponent:
@@ -72,7 +74,7 @@ cgp_preset! {
         cgp_orm::accessors::UniqueColumnsGetterComponent:
             PostUniqueColumns,
         cgp_api::accessors::EntityNameGetterComponent:
-            PostEntityName,
+            ConstEntityName<PostEntityName>,
     }
 }
 
@@ -98,13 +100,13 @@ delegate_components! {
 }
 
 cgp_preset! {
-    FavoriteAppPreset: ApiCrudStack {
+    FavoriteAppPreset: RepositoryCrudStack + ApiErrorPolicy {
         cgp_orm::types::EntityTypeProviderComponent:
             UseType<favorite::Entity>,
         cgp_orm::accessors::UniqueColumnsGetterComponent:
             FavoriteUniqueColumns,
         cgp_api::accessors::EntityNameGetterComponent:
-            FavoriteEntityName,
+            ConstEntityName<FavoriteEntityName>,
     }
 }
 

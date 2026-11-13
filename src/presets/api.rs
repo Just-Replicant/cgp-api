@@ -39,7 +39,7 @@ use crate::error::{
 
 /// Shared in-process error table. Contexts forward the three error components
 /// to this table's delegates, or inherit them through
-/// [`super::ApiResourceStack`].
+/// [`ApiErrorPolicy`].
 pub struct ApiErrors;
 
 delegate_components! {
@@ -65,5 +65,24 @@ delegate_components! {
         @ErrorRaiserComponent.<'a> &'a str: RaiseApiMessage,
         @ErrorRaiserComponent.<Column> ErrIdentityFieldUnset<Column>: RaiseIdentityFieldUnset,
         @ErrorRaiserComponent.<Column> ErrPrimaryKeyUnset<Column>: RaisePrimaryKeyUnset,
+    }
+}
+
+// Forwards the three error components to `ApiErrors`.
+// Compose with a cgp-orm stack; this policy does not wrap an ORM parent.
+cgp_preset! {
+    ApiErrorPolicy {
+        ::cgp_fork::core::error::ErrorTypeProviderComponent:
+            <cgp_api::presets::ApiErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorTypeProviderComponent,
+            >>::Delegate,
+        ::cgp_fork::core::error::ErrorRaiserComponent:
+            <cgp_api::presets::ApiErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorRaiserComponent,
+            >>::Delegate,
+        ::cgp_fork::core::error::ErrorWrapperComponent:
+            <cgp_api::presets::ApiErrors as DelegateComponent<
+                ::cgp_fork::core::error::ErrorWrapperComponent,
+            >>::Delegate,
     }
 }

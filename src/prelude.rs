@@ -26,11 +26,12 @@ pub use crate::error::{
     RaiseRestBadRequest, RaiseRestInternal, RaiseRestInternalDisplay, RaiseRestNotFound,
 };
 #[cfg(feature = "thiserror")]
-pub use crate::presets::{ApiCrudStack, ApiErrors, ApiLookupStack, ApiResourceStack};
+pub use crate::presets::{ApiErrorPolicy, ApiErrors};
 #[cfg(feature = "grpc")]
-pub use crate::presets::{GrpcCrudStack, GrpcErrors, GrpcLookupStack, GrpcResourceStack};
+pub use crate::presets::{GrpcErrorPolicy, GrpcErrors};
 #[cfg(feature = "rest")]
-pub use crate::presets::{RestCrudStack, RestErrors, RestLookupStack, RestResourceStack};
+pub use crate::presets::{RestErrorPolicy, RestErrors};
+pub use crate::providers::ConstEntityName;
 pub use crate::transport::{
     PageMeta, ResourceResponse, ResourceResponseList, response_from, response_from_page,
     response_list_from,

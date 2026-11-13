@@ -1,0 +1,5 @@
+error: `error` is required when `stack` is explicit
+ --> tests/ui/stack_without_error.rs:4:5
+  |
+4 |     stack = SomeResourceStack,
+  |     ^^^^^

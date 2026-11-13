@@ -1,0 +1,24 @@
+[package]
+name = "cgp-api-macros-tests"
+version = "0.1.2"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-or-later"
+publish = false
+description = "Compile-pass tests for cgp-api-macros (not published)"
+
+[features]
+default = ["thiserror", "rest", "grpc"]
+thiserror = ["cgp-api/thiserror"]
+rest = ["cgp-api/rest"]
+grpc = ["cgp-api/grpc"]
+
+[dependencies]
+cgp-api = { path = "../..", version = "0.1.2", default-features = false, features = ["macros", "thiserror"] }
+cgp-fork = "1.1"
+cgp-orm = "0.1"
+sea-orm = { version = "2", default-features = false, features = ["macros"] }
+thiserror = "2"
+
+[dev-dependencies]
+cgp-api = { path = "../..", version = "0.1.2", default-features = false, features = ["macros", "thiserror", "rest", "grpc"] }

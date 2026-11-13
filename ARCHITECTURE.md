@@ -1,10 +1,10 @@
 # cgp-api architecture
 
 `cgp-api` is a **generic** application / service layer on
-[`cgp-orm`](https://crates.io/crates/cgp-orm). It owns error-mapping policies, stacked
-presets, a routing-name accessor, and transport-independent response
-helpers. It does **not** own a domain model: no entities, no fixed
-DTO shape, and no transport-specific payload types.
+[`cgp-orm`](https://crates.io/crates/cgp-orm). It owns error-mapping policies, a
+routing-name accessor, and transport-independent response helpers. It
+does **not** own a domain model: no entities, no fixed DTO shape, and
+no transport-specific payload types.
 
 The design principle, shared with `cgp-orm`: **presets compose
 behavior, contexts choose policies, and macros do not own
@@ -23,7 +23,7 @@ flowchart TB
     end
 
     subgraph api ["cgp-api (this crate)"]
-        stacks["Api / Rest / Grpc Lookup, Crud, Resource stacks"]
+        policies["ApiErrorPolicy, RestErrorPolicy, GrpcErrorPolicy"]
         errors["ApiErrors, RestErrors, GrpcErrors"]
         resp["ResourceResponse, PageMeta"]
         accessor["HasEntityName, ConstEntityName"]
@@ -33,28 +33,27 @@ flowchart TB
         core["Repository and resource-service stacks"]
     end
 
-    ctx --> stacks
-    codecs --> stacks
-    ident --> stacks
+    ctx --> policies
+    ctx --> core
+    codecs --> core
+    ident --> core
     names --> accessor
-    stacks --> errors
-    stacks --> core
+    policies --> errors
     ctx --> resp
     domain --> ctx
 ```
 
-# Stacked presets
+# Error-policy presets
 
-Each transport has three presets, all forwarding `ErrorType`,
-`ErrorRaiser`, and `ErrorWrapper` to the corresponding error table:
+There is one policy preset per error table. Each forwards `ErrorType`,
+`ErrorRaiser`, and `ErrorWrapper` to that table and does **not** wrap
+a `cgp-orm` parent. The context adds the ORM stack:
 
-| Preset | `cgp-orm` parents | Error map |
+| Policy | Error map | Typical composition |
 | --- | --- | --- |
-| `ApiLookupStack` | `RepositoryLookupStack` | `ApiErrors` (`ApiError`) |
-| `ApiCrudStack` | `RepositoryCrudStack` | `ApiErrors` (`ApiError`) |
-| `ApiResourceStack` | `RepositoryCrudStack + ResourceServiceStack` | `ApiErrors` (`ApiError`) |
-| `RestLookupStack` / `RestCrudStack` / `RestResourceStack` | same | `RestErrors` (`rest`) |
-| `GrpcLookupStack` / `GrpcCrudStack` / `GrpcResourceStack` | same | `GrpcErrors` (`grpc`) |
+| `ApiErrorPolicy` | `ApiErrors` (`ApiError`, feature `thiserror`) | `RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy`, or `RepositoryLookupStack + ApiErrorPolicy` |
+| `RestErrorPolicy` | `RestErrors` (feature `rest`) | same parents, with `RestErrorPolicy` |
+| `GrpcErrorPolicy` | `GrpcErrors` (feature `grpc`) | same parents, with `GrpcErrorPolicy` |
 
 A consumer writes a child preset that fills in:
 
@@ -110,15 +109,71 @@ these helpers do not depend on Axum, tonic, or protobuf.
 # Examples as proof
 
 - `examples/blog` — UUID users, distinct post DTOs, composite-key
-  favorites, composed from `ApiResourceStack` / `ApiCrudStack`.
+  favorites, composed from `RepositoryCrudStack` (plus
+  `ResourceServiceStack` for users and posts) and `ApiErrorPolicy`.
+
+# `#[entity_api]` (feature `macros`)
+
+The optional `#[cgp_api::entity_api]` attribute generates a context. It
+does **not** generate error tables, stacks, codecs, or name providers.
+Error policies and application stacks stay handwritten.
+
+`policy = api | rest | grpc` plus `layer` (default `resource`) expands
+to the `cgp-orm` parents and the matching error policy:
+
+| layer | parents |
+| --- | --- |
+| `lookup` | `RepositoryLookupStack` + `{Api,Rest,Grpc}ErrorPolicy` |
+| `crud` | `RepositoryCrudStack` + policy |
+| `resource` | `RepositoryCrudStack` + `ResourceServiceStack` + policy |
+
+The generated `{Name}Preset` is those parents plus `{Name}Base` (entity,
+codecs, identity). `policy` may also be a custom error-preset path; then `error` is required.
+
+`stack =` is a single path or a `+`-sum of paths (for example
+`RepositoryCrudStack + ResourceServiceStack + RfErrorPolicy`). `error`
+is required. The same grammar is accepted on `also` entries.
+
+`cfg` is never implied. Set `cfg = "rest"` to gate one generated context
+on a feature of the consumer crate. A keyword policy does not emit
+`#[cfg(feature = "thiserror")]`, `rest`, or `grpc`. Those names are
+features of *this* crate; an application usually enables them on the
+`cgp-api` dependency and does not declare them itself. `policy = rest`
+or `grpc` still needs that dependency feature, because the policy type
+only exists then. The gRPC error type in the generated check is
+`cgp_api::error::Status` (a re-export of `tonic::Status`).
+
+`also(PostRestApi: rest)` keeps the parent layer and switches the
+policy. `layer` on an `also` entry selects a different ORM parent
+(`also(PostLookup: api, layer = lookup)`). Codecs live on the shared
+base, so `layer = resource` there requires the primary context to set
+`create`, `update`, `output`, and a codec. A lookup or crud `also` of
+a resource context is valid.
+
+`name = Tag` wires
+`EntityNameGetterComponent: ::cgp_api::providers::ConstEntityName<Tag>`.
+
+The generated struct must contain `db_conn`. `cgp-orm` derives
+`HasDbConn` from that field name. The macro also derives `HasField`
+and `Clone`. A `#[derive]` on the struct, below `#[entity_api]`, may
+repeat those two; they are not derived twice.
+
+`{Name}Preset::with_components!` checks every inherited key except the
+three error components and any `extra` keys. Those are checked with
+their real types on the context table. `extra` stays on
+`delegate_components!`, so a key that already exists on a parent is
+replaced there (paths must match the parent key tokens).
 
 # Tests
 
 - `tests/helpers.rs` — response wrappers and REST error conversion.
 - `src/error/*.rs` — in-process, REST, and gRPC raisers, including the
   opaque-internal-error split and a child error-table extension.
+- `cgp-api-macros/compile-tests` — `#[entity_api]` shorthand (`api` /
+  `rest` / `grpc`, lookup / crud / resource), explicit stacks, `also`,
+  and split codecs. `cgp-api-macros/tests/ui` — argument and struct errors.
 - `examples/blog/tests/sqlite.rs` — in-memory SQLite, run with
-  `cargo test --workspace`. Includes a `RestResourceStack` conflict
+  `cargo test --workspace`. Includes a `RestErrorPolicy` conflict
   check as `RestError`. `cargo test -p cgp-api` stays a helper test;
   `--workspace` is the real suite.
 
@@ -148,8 +203,9 @@ Adding a component key to a parent preset is a breaking change for
 anyone who already assigned that key. A child preset that filled
 `SomeComponent: TheirProvider` will fail to compile (a conflict, or
 an explicit `override` becomes required) if a parent starts wiring
-that same key. New keys on `ApiResourceStack` and the other stacks
-are breaking, including during 0.x.
+that same key. New keys on `ApiErrorPolicy`, `RestErrorPolicy`, and
+`GrpcErrorPolicy` are breaking, including during 0.x. New keys on the
+`cgp-orm` stacks are governed by that crate.
 
 # Security and names
 

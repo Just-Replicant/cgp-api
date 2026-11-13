@@ -39,8 +39,7 @@ impl UniqueColumnsGetter {
     }
 }
 
-// `entity_name!` expands with fully qualified CGP paths: no prelude or
-// `EntityNameGetterComponent` import is required at this call site.
+// Tags only: wire `ConstEntityName<…>` at the context preset.
 cgp_api::entity_name!(UserEntityName, "users");
 cgp_api::entity_name!(PostEntityName, "posts");
 cgp_api::entity_name!(FavoriteEntityName, "favorites");

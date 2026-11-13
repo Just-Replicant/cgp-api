@@ -12,14 +12,14 @@ name = "blog_example"
 path = "src/lib.rs"
 
 [dependencies]
-cgp-api = { path = "../..", default-features = false, features = ["thiserror"] }
+cgp-api = { path = "../..", version = "0.1", default-features = false, features = ["thiserror"] }
 cgp-fork = "1.1"
 cgp-orm = "0.1"
 sea-orm = { version = "2", default-features = false, features = ["macros", "with-uuid"] }
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
-cgp-api = { path = "../..", default-features = false, features = ["thiserror", "rest"] }
+cgp-api = { path = "../..", version = "0.1", default-features = false, features = ["thiserror", "rest"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 sea-orm = { version = "2", default-features = false, features = [
     "sqlx-sqlite",

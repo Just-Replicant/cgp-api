@@ -42,3 +42,9 @@ pub use rest::{
     RaiseRestBadRequest, RaiseRestInternal, RaiseRestInternalDisplay, RaiseRestNotFound, RestError,
     WrapRestError,
 };
+/// gRPC context error (`tonic::Status`).
+///
+/// `#[entity_api(policy = grpc)]` names this re-export, so the generated
+/// check does not need a direct `tonic` dependency.
+#[cfg(feature = "grpc")]
+pub use tonic::Status;
