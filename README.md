@@ -1,6 +1,6 @@
 # cgp-api
 
-Generic application layer on top of [`cgp-orm`](../cgp-orm): error-mapping
+Generic application layer on top of [`cgp-orm`](https://crates.io/crates/cgp-orm): error-mapping
 policies, composable resource-service presets, and transport-independent
 response helpers.
 
@@ -11,9 +11,11 @@ here.
 **Presets compose behavior, contexts choose policies, and macros do
 not own architecture.**
 
-Depends on `cgp-orm` via `path = "../cgp-orm"`. Full design:
-[ARCHITECTURE.md](ARCHITECTURE.md). Adopting the split from an earlier
-mixed layout: [MIGRATION.md](MIGRATION.md).
+Depends on [`cgp-orm`](https://crates.io/crates/cgp-orm) `0.1`. Publish
+`cgp-orm` to crates.io first, then this crate. Full design:
+[ARCHITECTURE.md](https://github.com/Just-Replicant/cgp-api/blob/main/ARCHITECTURE.md).
+Adopting the split from an earlier mixed layout:
+[MIGRATION.md](https://github.com/Just-Replicant/cgp-api/blob/main/MIGRATION.md).
 
 ## Features
 
@@ -71,6 +73,7 @@ depend on `cgp-api` and prove the generic layer:
 
 - [`examples/blog`](examples/blog) — UUID-key users, distinct
   Create/Update/Output DTOs for posts, and a composite-key favorite.
+  Examples are under the same AGPL-3.0-or-later license as this crate.
 
 ```sh
 cargo test --workspace --all-targets --all-features
@@ -89,6 +92,9 @@ cargo fmt --all --check
 
 Domain codecs, entities, and context structs belong in the
 application (see the examples).
+
+This crate does not authenticate, and a live `db_conn` behind a route
+is full CRUD. There is no `CanAuthorize`.
 
 ## License
 

@@ -12,3 +12,5 @@ layer is not tied to a single DTO or identifier type.
 ```sh
 cargo test -p cgp-api-example-blog
 ```
+
+Licensed under the same AGPL-3.0-or-later license as the parent `cgp-api` crate.

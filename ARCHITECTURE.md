@@ -1,7 +1,7 @@
 # cgp-api architecture
 
 `cgp-api` is a **generic** application / service layer on
-[`cgp-orm`](../cgp-orm). It owns error-mapping policies, stacked
+[`cgp-orm`](https://crates.io/crates/cgp-orm). It owns error-mapping policies, stacked
 presets, a routing-name accessor, and transport-independent response
 helpers. It does **not** own a domain model: no entities, no fixed
 DTO shape, and no transport-specific payload types.
@@ -75,7 +75,21 @@ The generic tables map `cgp-orm` source errors and `sea_orm::DbErr`
 (and `String` / `&str`). `ApiError` is a `thiserror` enum.
 Applications with extra sources define their own enum, embed
 `ApiError` with `#[from]`, and raise library sources with
-`RaiseViaApiError`. Raiser keys are `open`.
+`RaiseViaApiError`. Raiser keys are `open`. Extension is that
+open raiser plus the embedded `ApiError`, not an `anyhow` table
+and not a copy of the `ApiErrors` source list. A compiling
+example is the `child_table_raises_an_app_error` test.
+
+At the REST and gRPC boundary, `RaiseRestInternal` and
+`RaiseGrpcInternal` send a fixed `"internal error"` string for
+`DbErr` and for unexpected `String` / `&str`. The full error stays
+on in-process `ApiError` (callers there need the SQL) and on the
+transport error's `source()`. This crate does not add a logger or
+a debug-errors feature: there is no `tracing` dependency, and an
+off-by-default leak switch gets left on. An application that wants
+the raw text on a private network overrides that one open raiser
+key.
+
 Error maps are `delegate_components!` tables, not `cgp_preset!`s:
 preset expansion drops lifetime and type parameters on `@` keys.
 
@@ -101,5 +115,45 @@ these helpers do not depend on Axum, tonic, or protobuf.
 # Tests
 
 - `tests/helpers.rs` — response wrappers and REST error conversion.
+- `src/error/*.rs` — in-process, REST, and gRPC raisers, including the
+  opaque-internal-error split and a child error-table extension.
 - `examples/blog/tests/sqlite.rs` — in-memory SQLite, run with
-  `cargo test --workspace`.
+  `cargo test --workspace`. Includes a `RestResourceStack` conflict
+  check as `RestError`. `cargo test -p cgp-api` stays a helper test;
+  `--workspace` is the real suite.
+
+# Transactions
+
+Multi-resource work that must share one SeaORM transaction should use
+[`cgp_orm::transaction::run_in_transaction`](https://docs.rs/cgp-orm/latest/cgp_orm/transaction/fn.run_in_transaction.html)
+(documented in cgp-orm's
+[ARCHITECTURE.md](https://github.com/Just-Replicant/cgp-orm/blob/main/ARCHITECTURE.md)
+and that function's rustdoc). This crate does not add a helper that
+builds several application contexts around one `DatabaseTransaction`;
+that would start owning application wiring.
+
+# How to return 404
+
+`CanGetResource::get` returns `Result<Option<Output>, _>`. A missing
+row is success. `ErrEntityNotFound` is mapped to 404 by `RestErrors`
+(and to `NOT_FOUND` by `GrpcErrors`) but is never raised by the
+default provider, so a handler that only matches `RestError` answers
+200 with an empty body. Leave `get` as `Option`. An opt-in helper
+next to the trait in `cgp-orm` (`get_or_not_found`) raises
+`ErrEntityNotFound`. The REST map already has the raiser.
+
+# Semver
+
+Adding a component key to a parent preset is a breaking change for
+anyone who already assigned that key. A child preset that filled
+`SomeComponent: TheirProvider` will fail to compile (a conflict, or
+an explicit `override` becomes required) if a parent starts wiring
+that same key. New keys on `ApiResourceStack` and the other stacks
+are breaking, including during 0.x.
+
+# Security and names
+
+This crate does not authenticate, and a live `db_conn` behind a route
+is full CRUD. There is no `CanAuthorize`. `HasEntityName` is a
+compile-time `&'static str` literal. Examples are under the same
+parent AGPL-3.0-or-later license as this crate.

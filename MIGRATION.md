@@ -64,3 +64,16 @@ The `cgp-api` library itself is only: error maps, stacked presets,
 - **No app-local macro.** Contexts are explicit.
 - Workspace layout: `cgp-api` is the workspace root; run
   `cargo test --workspace --all-features` to include the examples.
+
+## Publishing and semver
+
+Publish `cgp-orm` to crates.io first, then this crate (`cgp-orm = "0.1"`
+in `Cargo.toml`). Point crate docs at `include_str!` or an absolute
+URL so docs.rs is not a dead pointer to a repository-relative
+markdown file.
+
+Adding a component key to a parent preset is a breaking change for
+anyone who already assigned that key. A child that already filled
+that key will not compile against the new parent without an
+`override` (or a redesign). Treat new keys on `ApiResourceStack`
+and the other stacks as breaking.

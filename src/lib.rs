@@ -30,8 +30,16 @@
 //! behavior, contexts choose policies, and macros do not own
 //! architecture.**
 //!
-//! Full design: `ARCHITECTURE.md`. Adopting the split from an earlier
-//! mixed layout: `MIGRATION.md`.
+//! Full design: <https://github.com/Just-Replicant/cgp-api/blob/main/ARCHITECTURE.md>
+//! (also included as [`architecture`]). Adopting the split from an earlier
+//! mixed layout:
+//! <https://github.com/Just-Replicant/cgp-api/blob/main/MIGRATION.md>
+//! (also included as [`migration`]).
+//!
+//! [`HasEntityName`] is a compile-time `&'static str` literal. This crate
+//! does not authenticate, and a live `db_conn` behind a route is full
+//! CRUD; there is no `CanAuthorize`. Examples are under the same parent
+//! AGPL-3.0-or-later license.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
@@ -48,3 +56,11 @@ pub mod providers;
 pub mod transport;
 
 pub use prelude::*;
+
+/// Architecture of `cgp-api` (the repository `ARCHITECTURE.md`).
+#[doc = include_str!("../ARCHITECTURE.md")]
+pub mod architecture {}
+
+/// Migrating to `cgp-orm` + `cgp-api` (the repository `MIGRATION.md`).
+#[doc = include_str!("../MIGRATION.md")]
+pub mod migration {}
