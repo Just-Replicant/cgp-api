@@ -1,0 +1,129 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 4ba1983..7180e8e 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,12 @@
+ 
+ ## [Unreleased]
+ 
++### Added
++
++- Opt-in [`CanGetResourceOrNotFound::get_or_not_found`] next to
++  [`CanGetResource`]. A missing row is [`ErrEntityNotFound`]. The
++  default `get` is unchanged and still returns `Ok(None)`.
++
+ ## [0.1.2](https://github.com/Just-Replicant/cgp-orm/compare/v0.1.1...v0.1.2) - 2026-11-12
+ 
+ ### Added
+diff --git a/src/components/mod.rs b/src/components/mod.rs
+index 925c4bc..8efeb0e 100644
+--- a/src/components/mod.rs
++++ b/src/components/mod.rs
+@@ -30,11 +30,11 @@ pub use repository::{
+ };
+ pub use service::{
+     ApplyUpdateInput, ApplyUpdateInputComponent, CanApplyUpdateInput, CanCreateResource,
+-    CanDecodeCreateInput, CanDeleteResource, CanEncodeOutput, CanGetResource, CanListResources,
+-    CanUpdateResource, CreateResource, CreateResourceComponent, DecodeCreateInput,
+-    DecodeCreateInputComponent, DeleteResource, DeleteResourceComponent, EncodeOutput,
+-    EncodeOutputComponent, GetResource, GetResourceComponent, HasCreateInputType, HasOutputType,
+-    HasUpdateInputType, ListResources, ListResourcesComponent, UpdateResource,
+-    UpdateResourceComponent,
++    CanDecodeCreateInput, CanDeleteResource, CanEncodeOutput, CanGetResource,
++    CanGetResourceOrNotFound, CanListResources, CanUpdateResource, CreateResource,
++    CreateResourceComponent, DecodeCreateInput, DecodeCreateInputComponent, DeleteResource,
++    DeleteResourceComponent, EncodeOutput, EncodeOutputComponent, GetResource,
++    GetResourceComponent, HasCreateInputType, HasOutputType, HasUpdateInputType, ListResources,
++    ListResourcesComponent, UpdateResource, UpdateResourceComponent,
+ };
+ pub use transaction::{CanPrepareEntityWrite, EntityWritePreparer, EntityWritePreparerComponent};
+diff --git a/src/components/service.rs b/src/components/service.rs
+index 8722aca..ffab09a 100644
+--- a/src/components/service.rs
++++ b/src/components/service.rs
+@@ -99,6 +99,12 @@ pub trait CanUpdateResource {
+ }
+ 
+ /// Fetch a resource by primary key and encode it.
++///
++/// A missing row is `Ok(None)` — success, not
++/// [`crate::error::ErrEntityNotFound`]. The default provider never raises
++/// that error. To turn a missing row into `ErrEntityNotFound` (for example
++/// so a REST map can answer 404), use the opt-in
++/// [`CanGetResourceOrNotFound::get_or_not_found`]. Do not change `get`.
+ #[cgp_component(GetResource)]
+ #[cgp_async(Send)]
+ #[use_type(HasEntityType.Entity, HasErrorType.Error, HasOutputType.Output)]
+@@ -107,6 +113,38 @@ pub trait CanGetResource {
+     async fn get(&self, id: PrimaryKeyOf<Self>) -> Result<Option<Output>, Error>;
+ }
+ 
++/// Opt-in companion to [`CanGetResource`]: a missing row is
++/// [`crate::error::ErrEntityNotFound`] instead of `Ok(None)`.
++///
++/// This is a blanket trait, not a new default provider and not a change
++/// to [`CanGetResource::get`]. Call it only when a transport map should
++/// see `ErrEntityNotFound` (mapped to 404 by `cgp-api`'s REST table).
++pub trait CanGetResourceOrNotFound: CanGetResource {
++    /// Fetch by primary key, raising [`crate::error::ErrEntityNotFound`]
++    /// when the row is absent.
++    fn get_or_not_found(
++        &self,
++        id: PrimaryKeyOf<Self>,
++    ) -> impl core::future::Future<
++        Output = Result<<Self as HasOutputType>::Output, <Self as HasErrorType>::Error>,
++    > + Send
++    where
++        Self: cgp_fork::prelude::CanRaiseError<crate::error::ErrEntityNotFound> + Sync,
++        PrimaryKeyOf<Self>: Send,
++    {
++        async move {
++            match self.get(id).await? {
++                Some(output) => Ok(output),
++                None => Err(Self::raise_error(crate::error::ErrEntityNotFound::of::<
++                    <Self as HasEntityType>::Entity,
++                >())),
++            }
++        }
++    }
++}
++
++impl<T> CanGetResourceOrNotFound for T where T: CanGetResource {}
++
+ /// List resources with policy-clamped pagination.
+ #[cgp_component(ListResources)]
+ #[cgp_async(Send)]
+diff --git a/src/prelude.rs b/src/prelude.rs
+index a1c8153..2bbb0f3 100644
+--- a/src/prelude.rs
++++ b/src/prelude.rs
+@@ -13,8 +13,8 @@ pub use crate::components::repository::{
+ };
+ pub use crate::components::service::{
+     CanApplyUpdateInput, CanCreateResource, CanDecodeCreateInput, CanDeleteResource,
+-    CanEncodeOutput, CanGetResource, CanListResources, CanUpdateResource, HasCreateInputType,
+-    HasOutputType, HasUpdateInputType,
++    CanEncodeOutput, CanGetResource, CanGetResourceOrNotFound, CanListResources, CanUpdateResource,
++    HasCreateInputType, HasOutputType, HasUpdateInputType,
+ };
+ pub use crate::components::transaction::CanPrepareEntityWrite;
+ pub use crate::error::{
+diff --git a/tests/sqlite.rs b/tests/sqlite.rs
+index 3b43f7f..a15369a 100644
+--- a/tests/sqlite.rs
++++ b/tests/sqlite.rs
+@@ -472,6 +472,14 @@ async fn resource_service_create_get_update_list_delete() {
+ 
+     assert!(app.delete(created.id).await.unwrap());
+     assert!(app.get(created.id).await.unwrap().is_none());
++    let missing = app
++        .get_or_not_found(created.id)
++        .await
++        .expect_err("missing row is ErrEntityNotFound");
++    assert!(
++        missing.to_string().contains("not found"),
++        "expected a not-found error, got {missing}"
++    );
+ }
+ 
+ #[tokio::test]
