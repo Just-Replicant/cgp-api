@@ -24,52 +24,11 @@ defaults:
   run:
     working-directory: cgp-api
 
+# One job: the examples are the proof, so clippy and test run the
+# workspace (`--all-targets --all-features`), not a library-only crate.
 jobs:
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout cgp-api
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: cgp-api
-      - name: Checkout cgp-orm
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Just-Replicant/cgp-orm
-          path: cgp-orm
-      - name: Install pinned toolchain
-        working-directory: cgp-api
-        run: rustup toolchain install --profile minimal --component rustfmt
-      - run: cargo fmt --all -- --check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout cgp-api
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: cgp-api
-      - name: Checkout cgp-orm
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: Just-Replicant/cgp-orm
-          path: cgp-orm
-      - name: Install pinned toolchain
-        working-directory: cgp-api
-        run: rustup toolchain install --component clippy
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            cgp-api/target
-          key: clippy-${{ runner.os }}-${{ hashFiles('cgp-api/**/Cargo.toml', 'cgp-api/rust-toolchain.toml') }}
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-
-  test:
-    name: Test
+  ci:
+    name: fmt, clippy, test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -84,12 +43,17 @@ jobs:
           path: cgp-orm
       - name: Install pinned toolchain
         working-directory: cgp-api
-        run: rustup toolchain install
+        run: rustup toolchain install --component rustfmt,clippy
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             cgp-api/target
-          key: test-${{ runner.os }}-${{ hashFiles('cgp-api/**/Cargo.toml', 'cgp-api/rust-toolchain.toml') }}
-      - run: cargo test --workspace --all-features
+          key: ci-${{ runner.os }}-${{ hashFiles('cgp-api/**/Cargo.toml', 'cgp-api/rust-toolchain.toml') }}
+      - name: cargo fmt
+        run: cargo fmt --all --check
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: cargo test
+        run: cargo test --workspace --all-targets --all-features
