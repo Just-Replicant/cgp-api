@@ -14,7 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 cgp-api = { path = "../..", default-features = false, features = ["thiserror"] }
 cgp-fork = "1.1"
-cgp-orm = { path = "../../../cgp-orm", version = "0.1.0" }
+cgp-orm = "0.1"
 sea-orm = { version = "2", default-features = false, features = ["macros", "with-uuid"] }
 uuid = { version = "1", features = ["v4"] }
 
