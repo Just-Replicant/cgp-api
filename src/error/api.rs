@@ -235,12 +235,17 @@ mod tests {
 
     #[test]
     fn not_found_stays_a_variant() {
-        let error = ErrorApp::raise_error(ErrEntityNotFound);
-        assert_eq!(error.to_string(), "entity not found");
+        let not_found = ErrEntityNotFound::of::<u32>();
+        let entity_name = not_found.entity_name;
+        let error = ErrorApp::raise_error(not_found);
+        assert_eq!(error.to_string(), format!("entity {entity_name} not found"));
         // Transparent: `source()` forwards the inner error's cause.
         // `ErrEntityNotFound` has none, so the chain stops here.
         assert!(error.source().is_none());
-        assert!(matches!(error, ApiError::NotFound(ErrEntityNotFound)));
+        assert!(matches!(
+            error,
+            ApiError::NotFound(ErrEntityNotFound { entity_name: name }) if name == entity_name
+        ));
     }
 
     #[test]
@@ -275,11 +280,14 @@ mod tests {
 
     #[test]
     fn wrap_nests_the_previous_error() {
-        let error = ErrorApp::wrap_error(ApiError::from(ErrEntityNotFound), "load user");
-        assert_eq!(error.to_string(), "load user: entity not found");
+        let not_found = ErrEntityNotFound::of::<u32>();
+        let entity_name = not_found.entity_name;
+        let error = ErrorApp::wrap_error(ApiError::from(not_found), "load user");
+        let expected = format!("entity {entity_name} not found");
+        assert_eq!(error.to_string(), format!("load user: {expected}"));
         assert_eq!(
             error.source().map(ToString::to_string).as_deref(),
-            Some("entity not found")
+            Some(expected.as_str())
         );
         let ApiError::Wrapped { detail, source } = error else {
             panic!("expected wrapped error");
@@ -287,7 +295,7 @@ mod tests {
         assert_eq!(detail, "load user");
         assert!(matches!(
             source.as_ref(),
-            ApiError::NotFound(ErrEntityNotFound)
+            ApiError::NotFound(ErrEntityNotFound { entity_name: name }) if *name == entity_name
         ));
     }
 }
