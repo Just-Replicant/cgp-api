@@ -32,7 +32,7 @@ grpc = ["dep:tonic"]
 [dependencies]
 axum = { version = "0.8", optional = true }
 cgp-fork = "1"
-cgp-orm = { path = "../cgp-orm", version = "0.1.0" }
+cgp-orm = "0.1"
 sea-orm = { version = "2", default-features = false }
 thiserror = { version = "2", optional = true }
 tonic = { version = "0.14", optional = true, default-features = false }
