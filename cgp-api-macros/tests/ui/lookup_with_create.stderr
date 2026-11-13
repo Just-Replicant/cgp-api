@@ -1,0 +1,5 @@
+error: `create` is only valid with `layer = resource` (lookup and crud reject resource-service arguments)
+ --> tests/ui/lookup_with_create.rs:7:5
+  |
+7 |     create = CreatePost,
+  |     ^^^^^^

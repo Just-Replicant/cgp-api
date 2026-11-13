@@ -12,15 +12,20 @@
 //!   `thiserror`), REST (Axum, feature `rest`), and gRPC (tonic, feature
 //!   `grpc`). Tables map `cgp-orm` source errors and `sea_orm::DbErr`.
 //!   Applications embed [`ApiError`] and extend the map for their own sources.
-//! - **Composable presets** — [`ApiResourceStack`], [`RestResourceStack`],
-//!   [`GrpcResourceStack`] (and the lookup / CRUD-only variants) wire a
-//!   `cgp-orm` stack to an error map so a consumer only has to fill in
-//!   entity, codecs, and identity.
+//! - **Error-policy presets** — [`ApiErrorPolicy`], [`RestErrorPolicy`],
+//!   [`GrpcErrorPolicy`] each forward the three error components to the
+//!   matching table. A context composes them with a `cgp-orm` stack
+//!   (`RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy`, or
+//!   `RepositoryLookupStack + ApiErrorPolicy`) and fills in entity,
+//!   codecs, and identity.
 //! - **Transport-independent response helpers** — [`ResourceResponse`] and
 //!   [`ResourceResponseList`], generic over the payload and optional
 //!   metadata. Not tied to protobuf.
 //! - **[`HasEntityName`]** — a generic routing/display name accessor.
 //!   The name itself is chosen by the application.
+//! - **`#[entity_api]`** (feature `macros`) — an attribute that generates
+//!   a context from an entity, a policy or stack, and identity. Error
+//!   policies and application stacks stay handwritten.
 //!
 //! Codec *traits* (`CanDecodeCreateInput`, `CanApplyUpdateInput`,
 //! `CanEncodeOutput`) live in `cgp-orm` and are re-exported here. Input
@@ -56,6 +61,17 @@ pub mod providers;
 pub mod transport;
 
 pub use prelude::*;
+
+/// Generate a context from an entity and a policy or stack.
+///
+/// Available behind the `macros` feature. See the
+/// [`cgp_api_macros`](https://docs.rs/cgp-api-macros) crate docs for the
+/// attribute grammar. The macro generates a context only; error policies
+/// and application stacks stay handwritten.
+#[cfg(feature = "macros")]
+#[cfg_attr(docsrs, doc(cfg(feature = "macros")))]
+#[doc(inline)]
+pub use cgp_api_macros::entity_api;
 
 /// Architecture of `cgp-api` (the repository `ARCHITECTURE.md`).
 #[doc = include_str!("../ARCHITECTURE.md")]

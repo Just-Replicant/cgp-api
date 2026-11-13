@@ -1,0 +1,5 @@
+error: duplicate `also(…)` context name
+ --> tests/ui/duplicate_also_names.rs:8:26
+  |
+8 |     also(OtherApi: rest, OtherApi: grpc),
+  |                          ^^^^^^^^

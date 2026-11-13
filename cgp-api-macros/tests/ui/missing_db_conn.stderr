@@ -1,0 +1,7 @@
+error: `#[entity_api]` requires a `db_conn` field; cgp-orm derives `HasDbConn` from that field name
+  --> tests/ui/missing_db_conn.rs:9:1
+   |
+ 9 | / pub struct PostApi {
+10 | |     pub conn: u32,
+11 | | }
+   | |_^

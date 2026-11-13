@@ -1,0 +1,13 @@
+error: `layer = resource` requires `create`, `update`, `output`, and a codec (`codec = …` or `decode` / `apply` / `encode`); missing: codec (or decode / apply / encode)
+  --> tests/ui/resource_missing_codec.rs:3:1
+   |
+ 3 | / #[entity_api(
+ 4 | |     policy = api,
+ 5 | |     entity = post::Entity,
+ 6 | |     create = CreatePost,
+...  |
+ 9 | |     unique = PostUniqueColumns,
+10 | | )]
+   | |__^
+   |
+   = note: this error originates in the attribute macro `entity_api` (in Nightly builds, run with -Z macro-backtrace for more info)

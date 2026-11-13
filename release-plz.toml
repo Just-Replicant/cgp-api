@@ -1,4 +1,5 @@
-# Publish `cgp-api` only. Workspace examples set `publish = false`.
+# Publish `cgp-api` and `cgp-api-macros` at the same version.
+# Workspace examples and compile-tests set `publish = false`.
 #
 # release-plz opens a release PR when a matching conventional commit lands on
 # main, then publishes after Tests pass and the committed version is newer
@@ -48,3 +49,9 @@ git_release_enable = true
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
 git_release_name = "v{{ version }}"
+
+[[package]]
+name = "cgp-api-macros"
+changelog_update = false
+git_release_enable = false
+git_tag_enable = false

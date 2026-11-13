@@ -1,0 +1,5 @@
+error: `also(…)` name must differ from the annotated struct
+ --> tests/ui/also_name_equals_struct.rs:8:10
+  |
+8 |     also(PostApi: rest),
+  |          ^^^^^^^
