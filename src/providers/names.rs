@@ -41,9 +41,9 @@ impl<Name: EntityNameValue> EntityNameGetter {
 /// ```
 ///
 /// The generated type is public and implements the getter through CGP.
-/// The `#[cgp_impl]` attribute is invoked at the absolute path
-/// `::cgp_fork::prelude::cgp_impl`, so the call site does not need the
-/// prelude (or any other `cgp_impl` import) in scope.
+/// Expansion mirrors `#[cgp_impl]` with fully qualified paths, so the call
+/// site needs neither the prelude nor `EntityNameGetterComponent` in scope
+/// (`cgp_impl` would emit that name bare, which fails under macro hygiene).
 ///
 /// The name is a compile-time `&'static str` literal. The tag trait
 /// [`EntityNameValue`] is kept until `adt_const_params` allows `&str` as
@@ -58,29 +58,36 @@ macro_rules! entity_name {
             const NAME: &'static str = $name;
         }
 
-        // The getter component must be in scope for `#[cgp_impl]`. An
-        // anonymous `const` block keeps that `use` from colliding when the
-        // macro is invoked more than once in the same module.
-        const _: () = {
-            use $crate::accessors::EntityNameGetterComponent;
-            #[::cgp_fork::prelude::cgp_impl($provider)]
-            impl $crate::accessors::EntityNameGetter {
-                fn entity_name(&self) -> &str {
-                    $name
-                }
+        impl<__Context__> $crate::accessors::EntityNameGetter<__Context__> for $provider {
+            fn entity_name(__context__: &__Context__) -> &str {
+                $name
             }
-        };
+        }
+
+        impl<__Context__>
+            ::cgp_fork::macro_prelude::IsProviderFor<
+                $crate::accessors::EntityNameGetterComponent,
+                __Context__,
+                (),
+            > for $provider
+        {
+        }
     };
 }
 
 #[cfg(test)]
 mod tests {
-    // Deliberately no `use cgp_fork::prelude::*` and no `cgp_impl` import:
-    // the macro must expand at an absolute path.
+    // Deliberately no `use cgp_fork::prelude::*`, no `cgp_impl`, and no
+    // `EntityNameGetterComponent` import: the macro must expand with
+    // fully qualified paths alone.
     crate::entity_name!(Posts, "posts");
 
     #[test]
     fn entity_name_macro_does_not_need_prelude() {
         assert_eq!(<Posts as crate::providers::EntityNameValue>::NAME, "posts");
+        assert_eq!(
+            <Posts as crate::accessors::EntityNameGetter<()>>::entity_name(&()),
+            "posts"
+        );
     }
 }

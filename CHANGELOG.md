@@ -24,8 +24,9 @@
 - *(ci)* One CI job runs `fmt --all --check`, `clippy --workspace
   --all-targets --all-features -- -D warnings`, and `test --workspace
   --all-targets --all-features`.
-- *(macro)* `entity_name!` invokes `#[::cgp_fork::prelude::cgp_impl]`,
-  so the call site does not need the prelude.
+- *(macro)* `entity_name!` expands the CGP provider impls with fully
+  qualified paths (no bare `EntityNameGetterComponent`), so the call
+  site needs neither the prelude nor that component in scope.
 
 ### Documentation
 

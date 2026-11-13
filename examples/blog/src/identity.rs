@@ -39,8 +39,8 @@ impl UniqueColumnsGetter {
     }
 }
 
-// Absolute `#[::cgp_fork::prelude::cgp_impl]` inside the macro: no prelude
-// `cgp_impl` import is required at this call site.
+// `entity_name!` expands with fully qualified CGP paths: no prelude or
+// `EntityNameGetterComponent` import is required at this call site.
 cgp_api::entity_name!(UserEntityName, "users");
 cgp_api::entity_name!(PostEntityName, "posts");
 cgp_api::entity_name!(FavoriteEntityName, "favorites");
