@@ -298,4 +298,105 @@ mod tests {
             ApiError::NotFound(ErrEntityNotFound { entity_name: name }) if *name == entity_name
         ));
     }
+    #[test]
+    fn db_err_keeps_the_full_display_in_process() {
+        let sql = "SELECT * FROM secrets; syntax error at or near \"SELECT\"";
+        let db = sea_orm::DbErr::Custom(sql.into());
+        let error = ErrorApp::raise_error(db);
+        assert!(
+            error.to_string().contains("SELECT"),
+            "in-process ApiError must keep the SQL, got {error}"
+        );
+        assert!(matches!(error, ApiError::Db(_)));
+    }
+
+    #[derive(Debug, thiserror::Error, PartialEq, Eq)]
+    #[error("quota exceeded")]
+    struct QuotaExceeded;
+
+    #[derive(Debug, thiserror::Error)]
+    enum AppError {
+        #[error(transparent)]
+        Api(#[from] ApiError),
+        #[error(transparent)]
+        Quota(#[from] QuotaExceeded),
+    }
+
+    impl crate::error::WrapDetail for AppError {
+        fn wrap_detail(self, detail: impl core::fmt::Display) -> Self {
+            match self {
+                AppError::Api(api) => AppError::Api(api.wrap_detail(detail)),
+                other => AppError::Api(ApiError::Message(other.to_string()).wrap_detail(detail)),
+            }
+        }
+    }
+
+    /// Child table: one app source, no copy of [`crate::presets::ApiErrors`].
+    struct AppErrors;
+
+    delegate_components! {
+        #[unchecked]
+        AppErrors {
+            open ErrorRaiserComponent;
+
+            ErrorTypeProviderComponent: UseType<AppError>,
+            ErrorWrapperComponent: crate::error::WrapApiError,
+            @ErrorRaiserComponent.AppError: cgp_fork::extra::error::ReturnError,
+            @ErrorRaiserComponent.QuotaExceeded: cgp_fork::extra::error::RaiseFrom,
+        }
+    }
+
+    struct AppContext;
+
+    delegate_components! {
+        #[unchecked]
+        AppContext {
+            ErrorTypeProviderComponent:
+                <AppErrors as DelegateComponent<ErrorTypeProviderComponent>>::Delegate,
+            ErrorRaiserComponent:
+                <AppErrors as DelegateComponent<ErrorRaiserComponent>>::Delegate,
+            ErrorWrapperComponent:
+                <AppErrors as DelegateComponent<ErrorWrapperComponent>>::Delegate,
+        }
+    }
+
+    /// Same `AppError` (embeds `ApiError`), but the raiser is `ApiErrors`
+    /// itself — library sources go through `RaiseViaApiError` without a
+    /// copy of that table.
+    struct EmbeddedApp;
+
+    delegate_components! {
+        #[unchecked]
+        EmbeddedApp {
+            ErrorTypeProviderComponent: UseType<AppError>,
+            ErrorRaiserComponent:
+                <ApiErrors as DelegateComponent<ErrorRaiserComponent>>::Delegate,
+            ErrorWrapperComponent:
+                <ApiErrors as DelegateComponent<ErrorWrapperComponent>>::Delegate,
+        }
+    }
+
+    #[test]
+    fn child_table_raises_an_app_error_without_copying_api_errors() {
+        // The child table lists only the new source. It does not repeat
+        // the ApiErrors key list.
+        let error = AppContext::raise_error(QuotaExceeded);
+        assert!(matches!(error, AppError::Quota(QuotaExceeded)));
+        assert_eq!(error.to_string(), "quota exceeded");
+
+        // Library sources: RaiseViaApiError already accepts
+        // `Context::Error: From<ApiError>`, which the embedded `#[from]`
+        // provides. Forward ErrorRaiserComponent to ApiErrors — do not
+        // copy its source list. A RedirectLookup consults one table, so
+        // this is a second wiring, not a single table that holds both.
+        let not_found = ErrEntityNotFound::of::<u32>();
+        let entity_name = not_found.entity_name;
+        let error = EmbeddedApp::raise_error(not_found);
+        assert_eq!(error.to_string(), format!("entity {entity_name} not found"));
+        assert!(matches!(
+            error,
+            AppError::Api(ApiError::NotFound(ErrEntityNotFound { entity_name: name }))
+                if name == entity_name
+        ));
+    }
 }

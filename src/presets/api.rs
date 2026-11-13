@@ -1,10 +1,25 @@
 //! Generic in-process error map. Covers `cgp-orm` sources and `DbErr`.
 //!
-//! Applications with extra source errors write their own table.
-//! Embed [`crate::error::ApiError`] and raise library sources with
-//! [`crate::error::RaiseViaApiError`]. Raiser keys are `open` so a
-//! child table can add sources. The wrapper is one component;
-//! replace `ErrorWrapperComponent` to attach details differently.
+//! # Extending with an application error
+//!
+//! The extension path is `open ErrorRaiserComponent`, an application
+//! enum that **embeds** [`crate::error::ApiError`] with `#[from]`, and
+//! [`crate::error::RaiseViaApiError`] for library sources. It is not an
+//! `anyhow` table, and it is not a copy of this table's source list.
+//!
+//! A child table opens the raiser, sets `Error` to the application enum,
+//! implements [`crate::error::WrapDetail`] so [`crate::error::WrapApiError`]
+//! still wraps, and registers `ReturnError` for the enum and `RaiseFrom`
+//! for the new source — without repeating this table's source list.
+//! Library sources stay on this table: `RaiseViaApiError` already
+//! accepts `Context::Error: From<ApiError>`, which the embedded `#[from]`
+//! provides, so a context forwards `ErrorRaiserComponent` to this
+//! table's delegate. A `RedirectLookup` consults one table, so the new
+//! source and the library sources are two wirings, not one copied table.
+//! See the `child_table_raises_an_app_error` test in `src/error/api.rs`.
+//!
+//! The wrapper is one component; replace `ErrorWrapperComponent` to
+//! attach details differently.
 
 use cgp_fork::core::error::{
     ErrorRaiserComponent, ErrorTypeProviderComponent, ErrorWrapperComponent,
