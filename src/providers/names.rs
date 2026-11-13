@@ -41,7 +41,13 @@ impl<Name: EntityNameValue> EntityNameGetter {
 /// ```
 ///
 /// The generated type is public and implements the getter through CGP.
-/// `#[cgp_impl]` must be in scope at the call site (`use cgp_api::prelude::*`).
+/// The `#[cgp_impl]` attribute is invoked at the absolute path
+/// `::cgp_fork::prelude::cgp_impl`, so the call site does not need the
+/// prelude (or any other `cgp_impl` import) in scope.
+///
+/// The name is a compile-time `&'static str` literal. The tag trait
+/// [`EntityNameValue`] is kept until `adt_const_params` allows `&str` as
+/// a const generic.
 #[macro_export]
 macro_rules! entity_name {
     ($provider:ident, $name:literal) => {
@@ -52,11 +58,29 @@ macro_rules! entity_name {
             const NAME: &'static str = $name;
         }
 
-        #[cgp_impl($provider)]
-        impl $crate::accessors::EntityNameGetter {
-            fn entity_name(&self) -> &str {
-                $name
+        // The getter component must be in scope for `#[cgp_impl]`. An
+        // anonymous `const` block keeps that `use` from colliding when the
+        // macro is invoked more than once in the same module.
+        const _: () = {
+            use $crate::accessors::EntityNameGetterComponent;
+            #[::cgp_fork::prelude::cgp_impl($provider)]
+            impl $crate::accessors::EntityNameGetter {
+                fn entity_name(&self) -> &str {
+                    $name
+                }
             }
-        }
+        };
     };
+}
+
+#[cfg(test)]
+mod tests {
+    // Deliberately no `use cgp_fork::prelude::*` and no `cgp_impl` import:
+    // the macro must expand at an absolute path.
+    crate::entity_name!(Posts, "posts");
+
+    #[test]
+    fn entity_name_macro_does_not_need_prelude() {
+        assert_eq!(<Posts as crate::providers::EntityNameValue>::NAME, "posts");
+    }
 }

@@ -1,6 +1,5 @@
 //! Unique-column and entity-name providers.
 
-use cgp_api::accessors::{EntityNameGetter, EntityNameGetterComponent};
 use cgp_fork::prelude::*;
 use cgp_orm::accessors::{UniqueColumnsGetter, UniqueColumnsGetterComponent};
 use cgp_orm::types::HasEntityType;
@@ -40,20 +39,8 @@ impl UniqueColumnsGetter {
     }
 }
 
-macro_rules! entity_name {
-    ($provider:ident, $name:literal) => {
-        /// Entity-name provider.
-        pub struct $provider;
-
-        #[cgp_impl($provider)]
-        impl EntityNameGetter {
-            fn entity_name(&self) -> &str {
-                $name
-            }
-        }
-    };
-}
-
-entity_name!(UserEntityName, "users");
-entity_name!(PostEntityName, "posts");
-entity_name!(FavoriteEntityName, "favorites");
+// Absolute `#[::cgp_fork::prelude::cgp_impl]` inside the macro: no prelude
+// `cgp_impl` import is required at this call site.
+cgp_api::entity_name!(UserEntityName, "users");
+cgp_api::entity_name!(PostEntityName, "posts");
+cgp_api::entity_name!(FavoriteEntityName, "favorites");
