@@ -11,8 +11,9 @@
 //! // EntityNameGetterComponent: ConstEntityName<Posts>
 //! ```
 //!
-//! The [`entity_name`](crate::entity_name) macro expands to the same
-//! pattern.
+//! The [`entity_name`](crate::entity_name) macro expands to the tag and
+//! the [`EntityNameValue`] impl. Wire [`ConstEntityName`]`<Tag>` as the
+//! [`EntityNameGetter`] provider.
 
 use cgp_fork::prelude::*;
 
@@ -34,16 +35,17 @@ impl<Name: EntityNameValue> EntityNameGetter {
     }
 }
 
-/// Declare a [`crate::accessors::HasEntityName`] provider with a fixed name.
+/// Declare a tag type that implements [`EntityNameValue`] with a fixed name.
 ///
 /// ```ignore
-/// cgp_api::entity_name!(PostEntityName, "posts");
+/// cgp_api::entity_name!(Posts, "posts");
+/// // EntityNameGetterComponent: ConstEntityName<Posts>
 /// ```
 ///
-/// The generated type is public and implements the getter through CGP.
-/// The `#[cgp_impl]` attribute is invoked at the absolute path
-/// `::cgp_fork::prelude::cgp_impl`, so the call site does not need the
-/// prelude (or any other `cgp_impl` import) in scope.
+/// The generated type is a public tag. It does **not** implement
+/// [`crate::accessors::EntityNameGetter`]; that impl lives once on
+/// [`ConstEntityName`]. Wire `ConstEntityName<Tag>` as the
+/// [`crate::accessors::EntityNameGetterComponent`] provider.
 ///
 /// The name is a compile-time `&'static str` literal. The tag trait
 /// [`EntityNameValue`] is kept until `adt_const_params` allows `&str` as
@@ -51,36 +53,43 @@ impl<Name: EntityNameValue> EntityNameGetter {
 #[macro_export]
 macro_rules! entity_name {
     ($provider:ident, $name:literal) => {
-        /// Entity-name provider.
+        /// Entity-name tag for [`$crate::providers::ConstEntityName`].
         pub struct $provider;
 
         impl $crate::providers::names::EntityNameValue for $provider {
             const NAME: &'static str = $name;
         }
-
-        // The getter component must be in scope for `#[cgp_impl]`. An
-        // anonymous `const` block keeps that `use` from colliding when the
-        // macro is invoked more than once in the same module.
-        const _: () = {
-            use $crate::accessors::EntityNameGetterComponent;
-            #[::cgp_fork::prelude::cgp_impl($provider)]
-            impl $crate::accessors::EntityNameGetter {
-                fn entity_name(&self) -> &str {
-                    $name
-                }
-            }
-        };
     };
 }
 
 #[cfg(test)]
 mod tests {
     // Deliberately no `use cgp_fork::prelude::*` and no `cgp_impl` import:
-    // the macro must expand at an absolute path.
+    // the macro only declares a tag and an `EntityNameValue` impl.
     crate::entity_name!(Posts, "posts");
 
     #[test]
     fn entity_name_macro_does_not_need_prelude() {
         assert_eq!(<Posts as crate::providers::EntityNameValue>::NAME, "posts");
+    }
+
+    #[test]
+    fn entity_name_macro_is_used_through_const_entity_name() {
+        use cgp_fork::prelude::*;
+
+        use crate::accessors::HasEntityName;
+        use crate::providers::ConstEntityName;
+
+        #[derive(HasField)]
+        struct Ctx;
+
+        delegate_components! {
+            #[unchecked]
+            Ctx {
+                crate::accessors::EntityNameGetterComponent: ConstEntityName<Posts>,
+            }
+        }
+
+        assert_eq!(Ctx.entity_name(), "posts");
     }
 }

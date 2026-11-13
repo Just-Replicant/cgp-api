@@ -9,8 +9,9 @@ use cgp_fork::prelude::*;
 /// REST / display name for this context's entity.
 ///
 /// The name is a compile-time `&'static str` literal, provided by
-/// [`crate::providers::ConstEntityName`] or [`crate::entity_name`], not a
-/// runtime value loaded from the database.
+/// [`crate::providers::ConstEntityName`] (the [`crate::entity_name`]
+/// macro produces a tag for that provider), not a runtime value loaded
+/// from the database.
 #[cgp_getter]
 pub trait HasEntityName {
     /// A stable, URL-safe entity name chosen by the application.
