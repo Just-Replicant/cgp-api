@@ -50,7 +50,10 @@ pub struct PageMeta {
     /// Page size that was applied (after clamping).
     pub size: u64,
     /// Total number of matching rows.
-    pub total: u64,
+    ///
+    /// `None` when the request skipped `COUNT(*)`
+    /// ([`cgp_orm::pagination::PageRequest::without_total`]).
+    pub total: Option<u64>,
 }
 
 /// Wrap a single payload in a [`ResourceResponse`] with empty metadata.
