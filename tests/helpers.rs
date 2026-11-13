@@ -30,7 +30,7 @@ fn response_from_page_copies_pagination() {
         items: vec![1, 2],
         page: 2,
         size: 10,
-        total: 12,
+        total: Some(12),
     };
     let list = response_from_page(page);
     let meta = list.meta.expect("page meta");
@@ -39,7 +39,7 @@ fn response_from_page_copies_pagination() {
         PageMeta {
             page: 2,
             size: 10,
-            total: 12
+            total: Some(12)
         }
     );
     assert_eq!(list.data.len(), 2);

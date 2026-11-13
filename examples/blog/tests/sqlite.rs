@@ -138,12 +138,12 @@ async fn post_distinct_dtos_and_list() {
     let page = posts.list(PageRequest::new(1, 1)).await.expect("list");
     assert_eq!(page.page, 1);
     assert_eq!(page.size, 1);
-    assert_eq!(page.total, 2);
+    assert_eq!(page.total, Some(2));
     assert_eq!(page.items[0].id, first.id);
 
     // Wrap through the generic transport helper.
     let response = response_from_page(page);
-    assert_eq!(response.meta.unwrap().total, 2);
+    assert_eq!(response.meta.unwrap().total, Some(2));
     assert_eq!(response.data.len(), 1);
 }
 
