@@ -22,6 +22,11 @@
 //!   (`data: Vec<T>` plus one optional list-level `meta`, [`PageMeta`] for
 //!   a page). A single-item response is the payload itself, and failures
 //!   travel on `Err`, not in an error list. Not tied to protobuf.
+//! - **DTO-envelope CRUD** — [`CanCreateByDto`], [`CanUpdateDtoById`], and
+//!   [`CanListDto`], blanket-implemented over the `cgp-orm` resource
+//!   service for any context whose input and output are one DTO type. The
+//!   DTO implements [`HasId`] once; there is no per-context impl. See
+//!   [`dto_crud`].
 //! - **[`HasEntityName`]** — a generic routing/display name accessor.
 //!   The name itself is chosen by the application.
 //! - **`#[entity_api]`** (feature `macros`) — an attribute that generates
@@ -55,6 +60,7 @@ extern crate self as cgp_api;
 
 pub mod accessors;
 pub mod codec;
+pub mod dto_crud;
 pub mod error;
 pub mod prelude;
 pub mod presets;

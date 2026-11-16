@@ -42,3 +42,5 @@ tonic = { version = "0.14", optional = true, default-features = false }
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 cgp-fork = "1"
+# `DeriveEntityModel` for the entities behind the `dto_crud` mock contexts.
+sea-orm = { version = "2", default-features = false, features = ["macros"] }

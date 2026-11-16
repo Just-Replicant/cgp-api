@@ -8,6 +8,7 @@ pub use crate::codec::{
     ApplyUpdateInput, ApplyUpdateInputComponent, DecodeCreateInput, DecodeCreateInputComponent,
     EncodeOutput, EncodeOutputComponent,
 };
+pub use crate::dto_crud::{CanCreateByDto, CanListDto, CanUpdateDtoById, HasId};
 #[cfg(feature = "rest")]
 pub use crate::error::RestError;
 #[cfg(feature = "thiserror")]
