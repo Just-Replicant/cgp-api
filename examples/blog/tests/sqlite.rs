@@ -141,10 +141,14 @@ async fn post_distinct_dtos_and_list() {
     assert_eq!(page.total, Some(2));
     assert_eq!(page.items[0].id, first.id);
 
-    // Wrap through the generic transport helper.
+    // Hand the page to the generic transport helper: items move in, and
+    // pagination is carried once on the list.
+    let first_item = page.items.as_ptr();
     let response = response_from_page(page);
     assert_eq!(response.meta.unwrap().total, Some(2));
     assert_eq!(response.data.len(), 1);
+    assert_eq!(response.data.as_ptr(), first_item);
+    assert_eq!(response.data[0].id, first.id);
 }
 
 #[tokio::test]
