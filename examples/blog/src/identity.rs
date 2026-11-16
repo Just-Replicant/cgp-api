@@ -12,8 +12,8 @@ pub struct UserUniqueColumns;
 #[cgp_impl(UserUniqueColumns)]
 #[use_type(HasEntityType.{Entity = user::Entity})]
 impl UniqueColumnsGetter {
-    fn unique_columns(&self) -> Vec<user::Column> {
-        vec![user::Column::Email]
+    fn unique_columns(&self) -> &'static [user::Column] {
+        &[user::Column::Email]
     }
 }
 
@@ -23,8 +23,8 @@ pub struct PostUniqueColumns;
 #[cgp_impl(PostUniqueColumns)]
 #[use_type(HasEntityType.{Entity = post::Entity})]
 impl UniqueColumnsGetter {
-    fn unique_columns(&self) -> Vec<post::Column> {
-        vec![post::Column::Slug]
+    fn unique_columns(&self) -> &'static [post::Column] {
+        &[post::Column::Slug]
     }
 }
 
@@ -34,8 +34,8 @@ pub struct FavoriteUniqueColumns;
 #[cgp_impl(FavoriteUniqueColumns)]
 #[use_type(HasEntityType.{Entity = favorite::Entity})]
 impl UniqueColumnsGetter {
-    fn unique_columns(&self) -> Vec<favorite::Column> {
-        vec![favorite::Column::UserId, favorite::Column::PostId]
+    fn unique_columns(&self) -> &'static [favorite::Column] {
+        &[favorite::Column::UserId, favorite::Column::PostId]
     }
 }
 
