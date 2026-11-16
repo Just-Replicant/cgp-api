@@ -9,12 +9,12 @@ types belong in application crates (see `examples/blog`).
 | Concern | Crate |
 | --- | --- |
 | Repository, identity, transactions, pagination, resource service | `cgp-orm` |
-| Error maps, error-policy presets, `HasEntityName`, `ResourceResponse` | `cgp-api` |
+| Error maps, error-policy presets, `HasEntityName`, `ResourceResponseList` | `cgp-api` |
 | Entities, codecs, identity policies, App contexts | application crate |
 
 The `cgp-api` library itself is only: error maps, error-policy
 presets, `HasEntityName`, codec trait re-exports, and
-`ResourceResponse`.
+`ResourceResponseList`.
 
 ## Suggested adoption order
 
@@ -37,8 +37,8 @@ presets, `HasEntityName`, codec trait re-exports, and
 | One crate with persistence + app policy + domain mixed | `cgp-orm` (persistence) + `cgp-api` (generic app layer) + application crates |
 | Macro-generated entity apps | Explicit presets, structs, and `delegate_components!`, or optional `#[entity_api]` which emits the same shape |
 | `fn unique_columns` as the identity API | `CanBuildIdentityCondition`; `UniqueColumnsIdentity` |
-| `find_or_insert` | `insert`, `find_by_identity`, `insert_or_get`, `upsert` |
-| Create-via-`find_or_insert` | `CanCreateResource` (`insert`) and `CanGetOrCreateResource` (`insert_or_get`) |
+| `find_or_insert` | `insert`, `find_by_identity`, `get_or_create`, `upsert` |
+| Create-via-`find_or_insert` | `CanCreateResource::create` (delegates to `get_or_create`, returns `(Output, InsertOutcome)`) |
 | A single implicit DTO | Associated `CreateInput` / `UpdateInput` / `Output`; application codecs |
 | `From<i32>` identifiers; `primary_key_column()` | `PrimaryKeyOf<C>` = complete `ValueType` |
 | Hardcoded page size 5 | `PageRequest`, policy default 20 / max 100 |
@@ -82,18 +82,50 @@ consumer feature. The generated struct needs a `db_conn` field.
 ## Write-operation semantics
 
 - `insert` — unique conflicts are errors.
-- `insert_or_get` — try insert; on a unique-constraint violation, roll
-  the transaction back and `find_by_identity`. Requires a real unique
-  index matching the identity. Detection is a **policy**
+- `get_or_create` — load by identity first; on a miss, insert; on a
+  concurrent unique-constraint violation, roll the transaction back and
+  refetch the winner. The active model is not cloned.
+  Requires a real unique index matching the identity. Detection is a **policy**
   (`StandardUniqueConflict` by default).
 - `upsert` — find by identity; insert or merge-update; handle a
   concurrent unique conflict.
 
+## `cgp-orm` unique columns and primary keys
+
+- `HasUniqueColumns::unique_columns` returns `&'static [ColumnOf<Self>]`.
+  Change providers from `vec![Column::Email]` to `&[Column::Email]`
+  (return type `&'static [entity::Column]`). The provider trait
+  `UniqueColumnsGetter` and key `UniqueColumnsGetterComponent` are
+  unchanged, so context wiring stays the same.
+- `PrimaryKeyReadError::Arity` and `util::value_tuple_*` are gone.
+  `ErrUnsupportedKeyArity` still exists (it reports a key *write* with
+  the wrong arity), so the `cgp-api` error maps keep it.
+
+## Response helpers (breaking)
+
+- `ResourceResponse` and `response_from` are removed. A single-item
+  response is the payload: return `Output` / `Option<Output>` and let
+  failures travel on `Err`. Replace `response_from(x)` with `x`.
+- `ResourceResponseList` is `data: Vec<T>` plus `meta: Option<M>`.
+  `errors` is removed (use the `Result`). Items are payloads, not
+  wrappers: `list.data[0].data.unwrap()` becomes `list.data[0]`.
+- `response_from_page` moves `Page::items` in and puts `PageMeta` on
+  the list only; per-row `meta` is gone.
+- `response_list_from` takes an owned `Vec<T>` (was
+  `impl IntoIterator`). Call `.collect::<Vec<_>>()` or `Vec::from` on
+  other iterables, or use `ResourceResponseList::from(vec)`.
+- `HasEntityName::entity_name` returns `&'static str` and is a
+  `#[cgp_component(EntityNameGetter)]` instead of a `#[cgp_getter]`.
+  The provider trait and `EntityNameGetterComponent` keep their names;
+  `ConstEntityName<Tag>` wiring is unchanged. A context that derived
+  the name from a struct field must wire `ConstEntityName` (or a
+  provider of its own that returns a `'static` literal).
+
 ## Other notes
 
-- **`cgp-fork` 1.1.0** (published) is used. The unpublished git/path
-  fork was not reachable; official `cgp` 0.8.0-alpha was not used.
-- **SeaORM 2** `ValueTuple` is `One` / `Two` / `Three` / `Many`.
+- **`cgp-fork`** (published) is used. The unpublished git/path
+  fork was not reachable; official `cgp` alpha was not used.
+- **SeaORM** `ValueTuple` is `One` / `Two` / `Three` / `Many`.
   Structured unique-conflict detection via `DbErr::sql_err()` works
   when a sqlx backend feature is unified from the application; the
   library also keeps a tighter message fallback (no FK/CHECK matches)
@@ -107,10 +139,9 @@ consumer feature. The generated struct needs a `db_conn` field.
 
 ## Publishing and semver
 
-Publish `cgp-orm` to crates.io first, then this crate (`cgp-orm = "0.1"`
-in `Cargo.toml`). Point crate docs at `include_str!` or an absolute
-URL so docs.rs is not a dead pointer to a repository-relative
-markdown file.
+Publish `cgp-orm` to crates.io first, then this crate. Point crate docs
+at `include_str!` or an absolute URL so docs.rs is not a dead pointer
+to a repository-relative markdown file.
 
 Adding a component key to a parent preset is a breaking change for
 anyone who already assigned that key. A child that already filled

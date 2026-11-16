@@ -25,7 +25,7 @@ flowchart TB
     subgraph api ["cgp-api (this crate)"]
         policies["ApiErrorPolicy, RestErrorPolicy, GrpcErrorPolicy"]
         errors["ApiErrors, RestErrors, GrpcErrors"]
-        resp["ResourceResponse, PageMeta"]
+        resp["ResourceResponseList, PageMeta"]
         accessor["HasEntityName, ConstEntityName"]
     end
 
@@ -101,10 +101,52 @@ an application may equally map all three to one shared type.
 
 # Transport helpers
 
-`ResourceResponse<T, M = ()>` and `ResourceResponseList<T, M>` are
-generic wrappers with optional metadata. `response_from_page` copies
-a `cgp-orm::Page` into `PageMeta`. Transports own HTTP / RPC mapping;
-these helpers do not depend on Axum, tonic, or protobuf.
+A transport response is the payload, not a wrapper. A handler that
+reads or writes one row returns the context's `Output` (or
+`Option<Output>` for `get`); a failure is the `Err` side of the
+`Result`. There is no single-item wrapper and no `errors: Vec<String>`
+next to the payload — that would be a second failure channel beside
+`Result`, which this crate already rejects for `get` (a missing row is
+`Option`; `ErrEntityNotFound` is opt-in).
+
+`ResourceResponseList<T, M = ()>` is `data: Vec<T>` plus one
+`meta: Option<M>`. `response_from_page` (or `From<Page<T>>`) moves
+`Page::items` in without reallocating and puts one `Copy` `PageMeta` on
+the list; nothing is copied per row. `response_list_from` takes an
+owned `Vec<T>`. Per-item metadata belongs to a caller with a real
+per-item value (it makes `T` a struct of its own), not to pagination.
+Transports own HTTP / RPC mapping; these helpers do not depend on
+Axum, tonic, or protobuf.
+
+# Dispatch and allocation
+
+Static dispatch wherever a request succeeds; allocate only after it
+fails, and only to keep the success `Result` small.
+
+- **Abstraction.** Presets, `delegate_components!`, and providers are
+  zero-sized types and monomorphize. `ConstEntityName` returns a
+  `&'static str`. There is no service locator, plugin registry, or
+  `Box<dyn Repository>`, and the generics stay: removing them would
+  delete the product and save no cycles. The cost is compile time.
+- **The one runtime abstraction** is the error source at the transport
+  boundary: `Arc<dyn Error + Send + Sync>` on `RestError`, and
+  `Status::set_source` for gRPC. The source set is open — an
+  application embeds `ApiError` and a child table adds its own
+  variants — so a closed enum cannot name it, and `RestError<E>` would
+  leak that type into every handler. `dyn` never appears on a
+  repository or codec trait.
+- **Success path: nothing on the heap from this crate.** `HasEntityName`
+  is a `'static` component (not a field getter), `PageMeta` is `Copy`,
+  and the list helpers move the existing `Vec`. Boxing `sea_orm::DbErr`
+  inside `ApiError` is the right allocation: `DbErr` is large, and an
+  unboxed variant would inflate every `Result` on the path that
+  succeeded (a unit test pins `ApiError` below `DbErr`).
+- **Failure path: allocate.** `format!` for an unset column,
+  `Message(String)`, `Box<ApiError>` in `Wrapped`, and the `Arc` around
+  a source all run after a database call already failed.
+  `Cow<'static, str>` or a no-alloc `ApiError` would complicate the cold
+  path for nothing. This crate sits on SeaORM, so a `#![no_std]` or
+  arena rule would be false.
 
 # Examples as proof
 
@@ -193,9 +235,11 @@ that would start owning application wiring.
 row is success. `ErrEntityNotFound` is mapped to 404 by `RestErrors`
 (and to `NOT_FOUND` by `GrpcErrors`) but is never raised by the
 default provider, so a handler that only matches `RestError` answers
-200 with an empty body. Leave `get` as `Option`. An opt-in helper
-next to the trait in `cgp-orm` (`get_or_not_found`) raises
-`ErrEntityNotFound`. The REST map already has the raiser.
+200 with an empty body. Leave `get` as `Option`. To answer 404, raise
+`ErrEntityNotFound::of::<Entity>()` on `None` in the handler (the REST
+and gRPC maps already have the raiser). The opt-in `get_or_not_found`
+helper that does this next to the trait is **not** in published
+`cgp-orm`; `patches/cgp-orm-get-or-not-found.patch` adds it.
 
 # Semver
 
@@ -204,7 +248,7 @@ anyone who already assigned that key. A child preset that filled
 `SomeComponent: TheirProvider` will fail to compile (a conflict, or
 an explicit `override` becomes required) if a parent starts wiring
 that same key. New keys on `ApiErrorPolicy`, `RestErrorPolicy`, and
-`GrpcErrorPolicy` are breaking, including during 0.x. New keys on the
+`GrpcErrorPolicy` are breaking. New keys on the
 `cgp-orm` stacks are governed by that crate.
 
 # Security and names

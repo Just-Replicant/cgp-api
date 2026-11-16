@@ -7,7 +7,7 @@ layer is not tied to a single DTO or identifier type.
 | --- | --- | --- | --- |
 | `UserApp` | `Uuid` | unique `email` | `CreateUser`, `UpdateUser`, `UserOutput` |
 | `PostApp` | `i32` | unique `slug` | `CreatePost`, `UpdatePost`, `PostOutput` |
-| `FavoriteApp` | composite `(user_id, post_id)` | the key itself | CRUD, no DTOs (`insert_or_get`, `find_by_id`) |
+| `FavoriteApp` | composite `(user_id, post_id)` | the key itself | CRUD, no DTOs (`get_or_create`, `get_by_id`) |
 
 ```sh
 cargo test -p cgp-api-example-blog

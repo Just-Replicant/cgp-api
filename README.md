@@ -1,8 +1,8 @@
 # cgp-api
 
 Generic application layer on top of [`cgp-orm`](https://crates.io/crates/cgp-orm): error-mapping
-policies, error-policy presets composed with `cgp-orm` stacks, and transport-independent
-response helpers.
+policies, error-policy presets composed with `cgp-orm` stacks, and a transport-independent
+list helper.
 
 **This crate has no domain model.** An application chooses entities,
 codecs, identity policies, and context types, and composes the presets
@@ -11,7 +11,7 @@ here.
 **Presets compose behavior, contexts choose policies, and macros do
 not own architecture.**
 
-Depends on [`cgp-orm`](https://crates.io/crates/cgp-orm) `0.1`. Publish
+Depends on [`cgp-orm`](https://crates.io/crates/cgp-orm). Publish
 `cgp-orm` to crates.io first, then this crate. Full design:
 [ARCHITECTURE.md](https://github.com/Just-Replicant/cgp-api/blob/main/ARCHITECTURE.md).
 Adopting the split from an earlier mixed layout:
@@ -26,9 +26,11 @@ Adopting the split from an earlier mixed layout:
 | `grpc` | no | tonic `Status` raisers, `GrpcErrorPolicy` |
 | `macros` | no | `#[entity_api]` (re-exported from `cgp-api-macros`) |
 
-Response helpers (`ResourceResponse`, `response_from`,
-`response_from_page`) are always available and generic over the
-payload. They are not tied to protobuf.
+The list helper (`ResourceResponseList`, `response_from_page`,
+`response_list_from`) is always available and generic over the
+payload. It is not tied to protobuf. A single-item response is the
+payload itself (`get` returns `Option<Output>`); there is no wrapper and
+no error list beside the `Result`.
 
 ## Quick start
 
@@ -62,9 +64,9 @@ delegate_components! {
 }
 ```
 
-`create` uses `insert` (unique conflicts are errors). `get_or_create`
-uses `insert_or_get` and requires a real unique constraint matching
-the identity policy. Input and output types are whatever the
+`create` delegates to `cgp-orm`'s `get_or_create` and returns
+`(Output, InsertOutcome)`; it requires a real unique constraint
+matching the identity policy. Input and output types are whatever the
 application supplies — they do not have to be the same type.
 
 With the `macros` feature, the same context can be generated. The
@@ -126,7 +128,8 @@ cargo fmt --all --check
   consumer. `entity_name!` declares a tag; wire `ConstEntityName<Tag>`.
 - `#[entity_api]` (feature `macros`) — generates a context. Error
   policies and application stacks stay handwritten.
-- Transport-independent `ResourceResponse` helpers
+- `ResourceResponseList` — `data: Vec<T>` plus one optional list-level
+  `meta` (`PageMeta` for a page). Built by moving the `Vec` in.
 - Re-exported codec traits (`CanDecodeCreateInput`, …)
 
 Domain codecs, entities, and context structs belong in the
@@ -134,6 +137,24 @@ application (see the examples).
 
 This crate does not authenticate, and a live `db_conn` behind a route
 is full CRUD. There is no `CanAuthorize`.
+
+## Dispatch and allocation
+
+- **Static dispatch on the success path.** Presets, `delegate_components!`,
+  and providers are zero-sized types that monomorphize. There is no
+  service locator, plugin registry, or `Box<dyn Repository>`; the cost is
+  compile time, not cycles.
+- **One runtime abstraction, at the transport boundary.** `RestError`
+  keeps its source as `Arc<dyn Error + Send + Sync>`, and gRPC uses
+  `Status::set_source`. The source set is open (an application embeds
+  `ApiError` and adds variants), so it is not a closed enum and
+  `RestError` is not generic. No repository or codec trait uses `dyn`.
+- **No heap on success.** `HasEntityName` returns a `&'static str`,
+  `PageMeta` is `Copy`, and list helpers move the existing `Vec` in.
+  `ApiError` boxes `sea_orm::DbErr` so the success `Result` stays small.
+- **Allocate on failure.** `format!` for an unset column,
+  `ApiError::Message(String)`, `Box<ApiError>` in `Wrapped`, and the `Arc`
+  around a transport source all run after a database call already failed.
 
 ## License
 
