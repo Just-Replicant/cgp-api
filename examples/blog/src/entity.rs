@@ -1,4 +1,5 @@
-//! Blog entities: a UUID-key user, an i32-key post, and a composite-key favorite.
+//! Blog entities: a UUID-key user, an i32-key post, a composite-key favorite,
+//! and an i32-key tag served through one DTO envelope.
 
 pub mod user {
     use sea_orm::entity::prelude::*;
@@ -68,6 +69,29 @@ pub mod favorite {
         pub post_id: i32,
         /// Optional note.
         pub note: String,
+    }
+
+    /// Relations (none in this example).
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
+pub mod tag {
+    use sea_orm::entity::prelude::*;
+
+    /// A tag with an autoincrement id and a unique name. Served through the
+    /// single [`crate::dto::TagDto`] envelope.
+    #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+    #[sea_orm(table_name = "tags")]
+    pub struct Model {
+        /// Autoincrement primary key.
+        #[sea_orm(primary_key)]
+        pub id: i32,
+        /// Unique identity.
+        #[sea_orm(unique)]
+        pub name: String,
     }
 
     /// Relations (none in this example).

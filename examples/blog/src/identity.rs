@@ -4,7 +4,7 @@ use cgp_fork::prelude::*;
 use cgp_orm::accessors::{UniqueColumnsGetter, UniqueColumnsGetterComponent};
 use cgp_orm::types::HasEntityType;
 
-use crate::entity::{favorite, post, user};
+use crate::entity::{favorite, post, tag, user};
 
 /// Unique-column provider (email).
 pub struct UserUniqueColumns;
@@ -39,7 +39,19 @@ impl UniqueColumnsGetter {
     }
 }
 
+/// Unique-column provider (name).
+pub struct TagUniqueColumns;
+
+#[cgp_impl(TagUniqueColumns)]
+#[use_type(HasEntityType.{Entity = tag::Entity})]
+impl UniqueColumnsGetter {
+    fn unique_columns(&self) -> &'static [tag::Column] {
+        &[tag::Column::Name]
+    }
+}
+
 // Tags only: wire `ConstEntityName<…>` at the context preset.
 cgp_api::entity_name!(UserEntityName, "users");
 cgp_api::entity_name!(PostEntityName, "posts");
 cgp_api::entity_name!(FavoriteEntityName, "favorites");
+cgp_api::entity_name!(TagEntityName, "tags");
