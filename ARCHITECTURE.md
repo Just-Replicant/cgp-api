@@ -99,6 +99,49 @@ preset expansion drops lifetime and type parameters on `@` keys.
 the types. `examples/blog` uses three distinct structs per resource;
 an application may equally map all three to one shared type.
 
+# DTO-envelope CRUD (`dto_crud`)
+
+Some callers (a `flutter_rust_bridge` wrapper from
+`proto_dto::frb_crud_service!`) move one envelope through create,
+update, and list. `CanCreateByDto<Dto>`, `CanUpdateDtoById<Dto>`, and
+`CanListDto<Dto>` serve them with **one blanket impl each**, bounded on
+the `cgp-orm` resource service:
+
+```rust,ignore
+impl<App, Dto> CanCreateByDto<Dto> for App
+where
+    App: CanCreateResource
+        + HasCreateInputType<CreateInput = Dto>
+        + HasOutputType<Output = Dto>,
+{
+    fn create_by_dto(&self, dto: Dto) -> impl Future<Output = Result<(Dto, InsertOutcome), App::Error>> + Send {
+        self.create(dto)
+    }
+}
+```
+
+The error is the context's `HasErrorType::Error`, not a type parameter.
+`CreateInput` / `UpdateInput` / `Output` live on `HasCreateInputType` /
+`HasUpdateInputType` / `HasOutputType` (supertraits of the `cgp-orm`
+service traits), so the blanket pins them there.
+
+The adapters only forward:
+
+- `create_by_dto` → `create`.
+- `update_dto_by_id` → `update(id.into(), dto)`. The id comes from
+  `HasId`, the single DTO-side trait (a blanket impl cannot see a field).
+  `HasId::Id: Into<PrimaryKeyOf<App>>`. A missing id raises the existing
+  `ErrPrimaryKeyUnset` for the first key column (or
+  `ErrMissingPrimaryKey` for a keyless entity) — the same sources
+  `cgp-orm`'s `UpdateEntityById` already requires and every error policy
+  here already maps, so no new error type and no new preset key.
+- `list_dto` → `list(PageRequest)`: `page` defaults to 1, `size` of
+  `None`/`0` is the pagination policy default, and the request skips
+  `COUNT(*)` because only `items` is returned.
+
+`cgp-orm` stays unaware of DTO shape; the envelope type and its
+`HasId` impl belong to the application.
+
 # Transport helpers
 
 A transport response is the payload, not a wrapper. A handler that
@@ -152,7 +195,9 @@ fails, and only to keep the success `Result` small.
 
 - `examples/blog` — UUID users, distinct post DTOs, composite-key
   favorites, composed from `RepositoryCrudStack` (plus
-  `ResourceServiceStack` for users and posts) and `ApiErrorPolicy`.
+  `ResourceServiceStack` for users, posts, and tags) and
+  `ApiErrorPolicy`. Tags use one `TagDto` envelope and are served only
+  through the `dto_crud` blanket impls.
 
 # `#[entity_api]` (feature `macros`)
 

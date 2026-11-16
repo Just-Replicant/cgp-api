@@ -5,12 +5,12 @@ use cgp_api::providers::ConstEntityName;
 use cgp_fork::prelude::*;
 use cgp_orm::presets::{RepositoryCrudStack, ResourceServiceStack};
 
-use crate::codec::{PostCodec, UserCodec};
-use crate::dto::{CreatePost, CreateUser, PostOutput, UpdatePost, UpdateUser, UserOutput};
-use crate::entity::{favorite, post, user};
+use crate::codec::{PostCodec, TagCodec, UserCodec};
+use crate::dto::{CreatePost, CreateUser, PostOutput, TagDto, UpdatePost, UpdateUser, UserOutput};
+use crate::entity::{favorite, post, tag, user};
 use crate::identity::{
-    FavoriteEntityName, FavoriteUniqueColumns, PostEntityName, PostUniqueColumns, UserEntityName,
-    UserUniqueColumns,
+    FavoriteEntityName, FavoriteUniqueColumns, PostEntityName, PostUniqueColumns, TagEntityName,
+    TagUniqueColumns, UserEntityName, UserUniqueColumns,
 };
 
 cgp_preset! {
@@ -128,5 +128,52 @@ delegate_components! {
     #[unchecked]
     FavoriteApp {
         preset FavoriteAppPreset,
+    }
+}
+
+cgp_preset! {
+    TagAppPreset: RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy {
+        cgp_orm::types::EntityTypeProviderComponent:
+            UseType<tag::Entity>,
+        [
+            cgp_orm::components::service::CreateInputTypeProviderComponent,
+            cgp_orm::components::service::UpdateInputTypeProviderComponent,
+            cgp_orm::components::service::OutputTypeProviderComponent,
+        ]:
+            UseType<TagDto>,
+        [
+            cgp_orm::components::DecodeCreateInputComponent,
+            cgp_orm::components::ApplyUpdateInputComponent,
+            cgp_orm::components::EncodeOutputComponent,
+        ]: TagCodec,
+        cgp_orm::accessors::UniqueColumnsGetterComponent:
+            TagUniqueColumns,
+        cgp_api::accessors::EntityNameGetterComponent:
+            ConstEntityName<TagEntityName>,
+    }
+}
+
+/// Context for tags: one [`TagDto`] envelope for input and output.
+///
+/// There is no DTO-specific impl here. [`cgp_api::dto_crud`]'s blanket
+/// impls give it `create_by_dto`, `update_dto_by_id`, and `list_dto`
+/// because its create input, update input, and output are all `TagDto`.
+#[derive(HasField, Clone)]
+pub struct TagApp {
+    /// SeaORM connection.
+    pub db_conn: sea_orm::DatabaseConnection,
+}
+
+impl TagApp {
+    /// Build a context around this connection.
+    pub fn new(db_conn: sea_orm::DatabaseConnection) -> Self {
+        Self { db_conn }
+    }
+}
+
+delegate_components! {
+    #[unchecked]
+    TagApp {
+        preset TagAppPreset,
     }
 }

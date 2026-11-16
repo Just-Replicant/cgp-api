@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- *(dto_crud)* `CanCreateByDto<Dto>`, `CanUpdateDtoById<Dto>`, and
+  `CanListDto<Dto>`, each with one blanket impl over the `cgp-orm`
+  resource service (`CanCreateResource`, `CanUpdateResource`,
+  `CanListResources`) for any context whose input and output are the
+  same `Dto`. Exported from `cgp_api::prelude`. There is no per-context
+  impl to write.
+- *(dto_crud)* `HasId`: the one DTO-side trait, so the update blanket can
+  read the id. A DTO without an id raises `cgp-orm`'s existing
+  `ErrPrimaryKeyUnset` (first key column) — `ApiError::PrimaryKeyUnset`,
+  REST 400, gRPC `InvalidArgument` — before any database call.
+- *(examples)* `TagApp` / `TagDto` in `examples/blog`: one envelope for
+  create, update, and output, served only through the blanket impls, with
+  SQLite and REST tests.
+
+### Changed
+
+- *(dto_crud)* `list_dto` sends `PageRequest::without_total()`: the page
+  metadata is dropped, so the `COUNT(*)` query is skipped.
+
+
 ## [0.1.2](https://github.com/Just-Replicant/cgp-api/compare/v0.1.1...v0.1.2) - 2026-11-13
 
 ### Added
