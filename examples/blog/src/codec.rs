@@ -9,8 +9,8 @@ use cgp_orm::types::HasEntityType;
 use sea_orm::{NotSet, Set};
 use uuid::Uuid;
 
-use crate::dto::{CreatePost, CreateUser, PostOutput, UpdatePost, UpdateUser, UserOutput};
-use crate::entity::{post, user};
+use crate::dto::{CreatePost, CreateUser, PostOutput, TagDto, UpdatePost, UpdateUser, UserOutput};
+use crate::entity::{post, tag, user};
 
 /// Codec for the user resource.
 pub struct UserCodec;
@@ -116,6 +116,55 @@ impl EncodeOutput {
             slug: model.slug,
             title: model.title,
             body: model.body,
+        })
+    }
+}
+
+/// Codec for the tag resource: one [`TagDto`] in and out.
+pub struct TagCodec;
+
+#[cgp_impl(TagCodec)]
+#[use_type(
+    HasEntityType.{Entity = tag::Entity},
+    HasErrorType.Error,
+    HasCreateInputType.{CreateInput = TagDto}
+)]
+impl DecodeCreateInput {
+    fn decode_create_input(&self, input: TagDto) -> Result<tag::ActiveModel, Error> {
+        // A create ignores any id on the envelope; the database assigns it.
+        Ok(tag::ActiveModel {
+            id: NotSet,
+            name: Set(input.name),
+        })
+    }
+}
+
+#[cgp_impl(TagCodec)]
+#[use_type(
+    HasEntityType.{Entity = tag::Entity},
+    HasErrorType.Error,
+    HasUpdateInputType.{UpdateInput = TagDto}
+)]
+impl ApplyUpdateInput {
+    fn apply_update_input(&self, id: i32, input: TagDto) -> Result<tag::ActiveModel, Error> {
+        Ok(tag::ActiveModel {
+            id: Set(id),
+            name: Set(input.name),
+        })
+    }
+}
+
+#[cgp_impl(TagCodec)]
+#[use_type(
+    HasEntityType.{Entity = tag::Entity},
+    HasErrorType.Error,
+    HasOutputType.{Output = TagDto}
+)]
+impl EncodeOutput {
+    fn encode_output(&self, model: tag::Model) -> Result<TagDto, Error> {
+        Ok(TagDto {
+            id: Some(model.id),
+            name: model.name,
         })
     }
 }

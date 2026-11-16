@@ -1,5 +1,7 @@
-//! Distinct Create / Update / Output types. Not a single envelope.
+//! Distinct Create / Update / Output types for users and posts, and one
+//! envelope ([`TagDto`]) that tags use for all three.
 
+use cgp_api::dto_crud::HasId;
 use uuid::Uuid;
 
 /// Input for creating a user.
@@ -64,4 +66,25 @@ pub struct PostOutput {
     pub title: String,
     /// Body.
     pub body: String,
+}
+
+/// One envelope for tag create, update, and output.
+///
+/// `id` is `None` on create and must be set on update. With [`HasId`]
+/// implemented once here, `TagApp` gets `create_by_dto`,
+/// `update_dto_by_id`, and `list_dto` from the `cgp-api` blanket impls.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagDto {
+    /// Row id; `None` before the tag is stored.
+    pub id: Option<i32>,
+    /// Unique name.
+    pub name: String,
+}
+
+impl HasId for TagDto {
+    type Id = i32;
+
+    fn id(&self) -> Option<i32> {
+        self.id
+    }
 }
