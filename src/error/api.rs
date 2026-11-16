@@ -233,6 +233,20 @@ mod tests {
         assert_send_sync::<ApiError>();
     }
 
+    /// `DbErr` is boxed so a `Result` on the success path stays small.
+    #[test]
+    fn boxed_db_err_keeps_api_error_smaller_than_db_err() {
+        use core::mem::size_of;
+        assert!(
+            size_of::<ApiError>() < size_of::<sea_orm::DbErr>(),
+            "ApiError ({} bytes) must stay smaller than DbErr ({} bytes)",
+            size_of::<ApiError>(),
+            size_of::<sea_orm::DbErr>(),
+        );
+        // A `String` plus a discriminant word: five words on 64-bit targets.
+        assert!(size_of::<ApiError>() <= 5 * size_of::<usize>());
+    }
+
     #[test]
     fn not_found_stays_a_variant() {
         let not_found = ErrEntityNotFound::of::<u32>();

@@ -7,7 +7,6 @@
 //! ```ignore
 //! struct Posts;
 //! impl EntityNameValue for Posts { const NAME: &'static str = "posts"; }
-//! // UniqueColumnsGetterComponent-style wiring:
 //! // EntityNameGetterComponent: ConstEntityName<Posts>
 //! ```
 //!
@@ -30,7 +29,7 @@ pub struct ConstEntityName<Name>(core::marker::PhantomData<Name>);
 
 #[cgp_impl(ConstEntityName<Name>)]
 impl<Name: EntityNameValue> EntityNameGetter {
-    fn entity_name(&self) -> &str {
+    fn entity_name(&self) -> &'static str {
         Name::NAME
     }
 }
@@ -91,5 +90,12 @@ mod tests {
         }
 
         assert_eq!(Ctx.entity_name(), "posts");
+
+        // The name is `'static`: it outlives the context it was read from.
+        let name: &'static str = {
+            let ctx = Ctx;
+            ctx.entity_name()
+        };
+        assert_eq!(name, "posts");
     }
 }

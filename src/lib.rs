@@ -18,9 +18,10 @@
 //!   (`RepositoryCrudStack + ResourceServiceStack + ApiErrorPolicy`, or
 //!   `RepositoryLookupStack + ApiErrorPolicy`) and fills in entity,
 //!   codecs, and identity.
-//! - **Transport-independent response helpers** — [`ResourceResponse`] and
-//!   [`ResourceResponseList`], generic over the payload and optional
-//!   metadata. Not tied to protobuf.
+//! - **Transport-independent list helper** — [`ResourceResponseList`]
+//!   (`data: Vec<T>` plus one optional list-level `meta`, [`PageMeta`] for
+//!   a page). A single-item response is the payload itself, and failures
+//!   travel on `Err`, not in an error list. Not tied to protobuf.
 //! - **[`HasEntityName`]** — a generic routing/display name accessor.
 //!   The name itself is chosen by the application.
 //! - **`#[entity_api]`** (feature `macros`) — an attribute that generates

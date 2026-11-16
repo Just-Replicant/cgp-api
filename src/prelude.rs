@@ -33,6 +33,5 @@ pub use crate::presets::{GrpcErrorPolicy, GrpcErrors};
 pub use crate::presets::{RestErrorPolicy, RestErrors};
 pub use crate::providers::ConstEntityName;
 pub use crate::transport::{
-    PageMeta, ResourceResponse, ResourceResponseList, response_from, response_from_page,
-    response_list_from,
+    PageMeta, ResourceResponseList, response_from_page, response_list_from,
 };

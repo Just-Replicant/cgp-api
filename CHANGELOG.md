@@ -4,6 +4,24 @@
 
 ### Breaking
 
+- *(deps)* Build against current `cgp-orm` (compatible requirement
+  range unchanged). Unique-column providers in the example and the
+  macro compile tests return `&'static [Column]` instead of
+  `Vec<Column>`.
+- *(transport)* `ResourceResponse` and `response_from` are removed: a
+  transport response is the payload, not a wrapper. Return `Output` /
+  `Option<Output>` and let failures travel on `Err`.
+- *(transport)* `ResourceResponseList` is now `data: Vec<T>` plus one
+  `meta: Option<M>`; the `errors: Vec<String>` field (a second failure
+  channel beside `Result`) is removed. `response_from_page` moves
+  `Page::items` in instead of allocating a `Vec` of per-item wrappers,
+  and puts `PageMeta` on the list only (no per-row copy).
+  `response_list_from` takes an owned `Vec<T>`.
+- *(accessors)* `HasEntityName::entity_name` returns `&'static str` and
+  is declared with `#[cgp_component(EntityNameGetter)]` instead of
+  `#[cgp_getter]`, matching `cgp-orm`'s `HasUniqueColumns`. The
+  provider trait and component key keep their names.
+
 - *(presets)* The nine `*LookupStack` / `*CrudStack` / `*ResourceStack`
   types are removed. Publish one policy preset per error table —
   `ApiErrorPolicy`, `RestErrorPolicy`, `GrpcErrorPolicy` — and compose
@@ -27,6 +45,13 @@
 
 ### Added
 
+- *(transport)* `ResourceResponseList::{new, with_meta, len, is_empty,
+  into_parts}`, `Default`, `From<Vec<T>>`, `From<Page<T>>`, and
+  `IntoIterator` (owned and borrowed). `PageMeta::of(&Page<T>)` and
+  `From<&Page<T>>`.
+- *(tests)* Assert that list helpers reuse the page's buffer, and that
+  `ApiError` stays smaller than `sea_orm::DbErr`.
+
 - *(macros)* Optional `macros` feature and the `cgp-api-macros` crate.
   `#[entity_api]` generates a context (base preset, stack preset, struct,
   `new`, `delegate_components!`, and checks) from an entity, a policy or
@@ -47,7 +72,8 @@
 ### Documentation
 
 - Crate docs point at `include_str!` / absolute GitHub URLs for
-  `ARCHITECTURE.md` and `MIGRATION.md`. README matches `cgp-orm = "0.1"`.
+  `ARCHITECTURE.md` and `MIGRATION.md`. README matches the `cgp-orm`
+  dependency.
 - Publish `cgp-orm` first. Semver note: adding a component key to a
   parent preset is a breaking change for anyone who already assigned
   that key. Point at `cgp-orm::transaction::run_in_transaction`.
@@ -57,7 +83,7 @@
   keys are kept.
 
 
-## [0.1.1](https://github.com/Just-Replicant/cgp-api/compare/v0.1.0...v0.1.1) - 2026-11-13
+## Previous - 2026-11-13
 
 ### Added
 

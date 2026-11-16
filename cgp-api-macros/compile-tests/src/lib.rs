@@ -120,8 +120,8 @@ pub mod identity {
     #[cgp_impl(PostUniqueColumns)]
     #[use_type(HasEntityType.{Entity = entity::Entity})]
     impl UniqueColumnsGetter {
-        fn unique_columns(&self) -> Vec<entity::Column> {
-            vec![entity::Column::Slug]
+        fn unique_columns(&self) -> &'static [entity::Column] {
+            &[entity::Column::Slug]
         }
     }
 

@@ -14,8 +14,9 @@
 //! [`crate::error::RestError`] will answer 200 with an empty body.
 //! [`cgp_orm::error::ErrEntityNotFound`] is already mapped to 404 here,
 //! but the default provider never raises it. Leave `get` as `Option`.
-//! To answer 404, use the opt-in helper next to `CanGetResource` in
-//! `cgp-orm` (`get_or_not_found`), which raises `ErrEntityNotFound`.
+//! To answer 404, raise `ErrEntityNotFound::of::<Entity>()` when `get`
+//! returns `None`. The opt-in `get_or_not_found` helper is not in
+//! published `cgp-orm` 0.1.3; see `patches/` for a companion patch.
 //! This crate does not authenticate, and a live `db_conn` behind a route
 //! is full CRUD; there is no `CanAuthorize`.
 
