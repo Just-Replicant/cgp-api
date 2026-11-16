@@ -121,6 +121,67 @@ consumer feature. The generated struct needs a `db_conn` field.
   the name from a struct field must wire `ConstEntityName` (or a
   provider of its own that returns a `'static` literal).
 
+## DTO-envelope CRUD moves into `cgp-api`
+
+`CanCreateByDto`, `CanUpdateDtoById`, and `CanListDto` used to be
+defined per application with one impl per context (for example
+`impl CanCreateByDto for FolderApp` in `rf-cgp`). They now live in
+`cgp_api::dto_crud`, generic over the DTO, with one blanket impl each.
+The method names and return shapes are unchanged
+(`(Dto, InsertOutcome)`, `Option<Dto>`, `Vec<Dto>`); the error is the
+context's `HasErrorType::Error`.
+
+In the application crate (`rf-cgp`):
+
+1. Delete the local trait definitions and **every** per-context impl
+   (`impl CanCreateByDto for FolderApp`, `… for DeviceApp`, …), and drop
+   their re-exports from the local prelude.
+2. Implement `HasId` once for the envelope:
+
+   ```rust,ignore
+   use cgp_api::dto_crud::HasId;
+
+   impl HasId for rf_proto::DtoData {
+       // `DtoData.id` is `optional int32`; `Into<PrimaryKeyOf<App>>`
+       // must hold for every context's key (`i32 -> i32` does).
+       type Id = i32;
+
+       fn id(&self) -> Option<i32> {
+           self.id
+       }
+   }
+   ```
+
+   **Where it goes (orphan rule).** `HasId` is defined in `cgp-api`, so
+   the impl must live in a crate that owns `HasId` or `DtoData`. If
+   `rf_proto` is its own crate, put the impl **in `rf-proto`** — ideally
+   behind an optional feature (`cgp = ["dep:cgp-api"]`, with
+   `cgp-api = { version = "0.1", default-features = false }`) that
+   `rf-cgp` enables. It cannot go in `rf-cgp` unless `DtoData` is a type
+   `rf-cgp` defines. `proto-dto` is not involved and still does not
+   depend on cgp.
+3. An update without an id now raises `cgp-orm`'s `ErrPrimaryKeyUnset`
+   through the context's error map instead of `ErrDtoIdRequired`. The
+   RF error table already registers a raiser for it (the `cgp-orm`
+   update requires one); through `ApiErrors` it is
+   `ApiError::PrimaryKeyUnset { column: "Id" }`.
+   `ErrDtoIdRequired` stays an RF type; keep it if other RF code raises
+   it, otherwise delete it.
+4. Callers (`proto_dto::frb_crud_service!` ≥ the release that pastes
+   `cgp_api::prelude::…`) import the traits from `cgp_api::prelude`. The
+   crate that expands the macro must be able to name `cgp_api`: add
+   `cgp-api` as a direct dependency (same version as `rf-cgp` uses), or
+   `pub use cgp_api;` from `rf-cgp` and `use rf_cgp::cgp_api;` at the
+   expansion site.
+
+The blanket impls need, per context: `CreateInput = UpdateInput = Output
+= DtoData`, the `ResourceServiceStack` (or any provider of the three
+service components), and the `ErrPrimaryKeyUnset` / `ErrMissingPrimaryKey`
+raisers — which `RepositoryCrudStack`'s update already requires.
+
+`list_dto` now sends `PageRequest::without_total()`, so the unused
+`COUNT(*)` is no longer run.
+
 ## Other notes
 
 - **`cgp-fork`** (published) is used. The unpublished git/path

@@ -108,7 +108,9 @@ This package is a workspace. The examples are separate crates that
 depend on `cgp-api` and prove the generic layer:
 
 - [`examples/blog`](examples/blog) — UUID-key users, distinct
-  Create/Update/Output DTOs for posts, and a composite-key favorite.
+  Create/Update/Output DTOs for posts, a composite-key favorite, and
+  tags served through one `TagDto` envelope and the `dto_crud` blanket
+  impls.
   Examples are under the same AGPL-3.0-or-later license as this crate.
 
 ```sh
@@ -128,6 +130,11 @@ cargo fmt --all --check
   consumer. `entity_name!` declares a tag; wire `ConstEntityName<Tag>`.
 - `#[entity_api]` (feature `macros`) — generates a context. Error
   policies and application stacks stay handwritten.
+- `CanCreateByDto` / `CanUpdateDtoById` / `CanListDto` — blanket impls
+  over the `cgp-orm` resource service for a context whose input and
+  output are one DTO type. The DTO implements `HasId` once; a missing id
+  is `cgp-orm`'s `ErrPrimaryKeyUnset`. No per-context impl. See
+  [DTO envelopes](#dto-envelopes).
 - `ResourceResponseList` — `data: Vec<T>` plus one optional list-level
   `meta` (`PageMeta` for a page). Built by moving the `Vec` in.
 - Re-exported codec traits (`CanDecodeCreateInput`, …)
@@ -137,6 +144,32 @@ application (see the examples).
 
 This crate does not authenticate, and a live `db_conn` behind a route
 is full CRUD. There is no `CanAuthorize`.
+
+## DTO envelopes
+
+When one type is a context's create input, update input, *and* output,
+the context gets three envelope methods from blanket impls in
+`cgp_api::dto_crud` (all in `cgp_api::prelude`):
+
+```rust,ignore
+use cgp_api::prelude::*;
+
+// Once, next to the envelope type.
+impl HasId for TagDto {
+    type Id = i32; // anything with `Into<PrimaryKeyOf<App>>`
+    fn id(&self) -> Option<i32> {
+        self.id
+    }
+}
+
+let (created, _outcome) = tags.create_by_dto(dto).await?;   // CanCreateResource::create
+let updated = tags.update_dto_by_id(created).await?;        // CanUpdateResource::update(dto.id, dto)
+let first_page = tags.list_dto(None, None).await?;          // CanListResources::list(PageRequest)
+```
+
+A DTO without an id raises `ErrPrimaryKeyUnset` (`ApiError::PrimaryKeyUnset`,
+REST 400, gRPC `InvalidArgument`) without touching the database. `page`
+defaults to 1; `size` of `None` or `0` uses the pagination policy default.
 
 ## Dispatch and allocation
 
