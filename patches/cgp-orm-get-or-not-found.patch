@@ -1,5 +1,5 @@
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 4ba1983..7180e8e 100644
+index cf79cfc..9795707 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -2,6 +2,12 @@
@@ -12,9 +12,9 @@ index 4ba1983..7180e8e 100644
 +  [`CanGetResource`]. A missing row is [`ErrEntityNotFound`]. The
 +  default `get` is unchanged and still returns `Ok(None)`.
 +
- ## [0.1.2](https://github.com/Just-Replicant/cgp-orm/compare/v0.1.1...v0.1.2) - 2026-11-12
+ ## [0.1.3](https://github.com/Just-Replicant/cgp-orm/compare/v0.1.2...v0.1.3) - 2026-11-16
  
- ### Added
+ ### Changed
 diff --git a/src/components/mod.rs b/src/components/mod.rs
 index 925c4bc..8efeb0e 100644
 --- a/src/components/mod.rs
@@ -109,10 +109,10 @@ index a1c8153..2bbb0f3 100644
  pub use crate::components::transaction::CanPrepareEntityWrite;
  pub use crate::error::{
 diff --git a/tests/sqlite.rs b/tests/sqlite.rs
-index 3b43f7f..a15369a 100644
+index 8e23a43..6fb7165 100644
 --- a/tests/sqlite.rs
 +++ b/tests/sqlite.rs
-@@ -472,6 +472,14 @@ async fn resource_service_create_get_update_list_delete() {
+@@ -545,6 +545,14 @@ async fn resource_service_create_get_update_list_delete() {
  
      assert!(app.delete(created.id).await.unwrap());
      assert!(app.get(created.id).await.unwrap().is_none());
