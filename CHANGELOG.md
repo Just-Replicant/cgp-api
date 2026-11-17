@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/Just-Replicant/cgp-api/compare/v0.1.3...v0.1.4) - 2026-11-17
+
+### Added
+
+- *(dto_crud)* pin list_dto to envelope create/update/output
+- *(blog)* wire TagApp through dto_crud blanket impls
+- *(blog)* add TagDto HasId envelope and TagCodec
+- *(blog)* add tag entity and unique-name identity
+- *(dto_crud)* add blanket DTO-envelope CRUD traits
+
+### Documentation
+
+- document envelope-only list_dto bounds
+- document dto_crud envelopes and migration
+
 ### Added
 
 - *(dto_crud)* `CanCreateByDto<Dto>`, `CanUpdateDtoById<Dto>`, and
