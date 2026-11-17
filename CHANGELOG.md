@@ -22,6 +22,14 @@
 
 - *(dto_crud)* `list_dto` sends `PageRequest::without_total()`: the page
   metadata is dropped, so the `COUNT(*)` query is skipped.
+- *(dto_crud)* `CanListDto`'s blanket impl also requires
+  `HasCreateInputType<CreateInput = Dto>` and
+  `HasUpdateInputType<UpdateInput = Dto>`, so `list_dto` appears only on
+  envelope contexts, together with `create_by_dto` and
+  `update_dto_by_id`. Contexts with distinct create / update types (for
+  example `UserApp` / `PostApp`) no longer get a `list_dto` that drops
+  the page; they use `CanListResources::list`. Compile-time tests lock
+  this in.
 
 
 ## [0.1.2](https://github.com/Just-Replicant/cgp-api/compare/v0.1.1...v0.1.2) - 2026-11-13

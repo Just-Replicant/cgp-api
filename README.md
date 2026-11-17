@@ -131,8 +131,8 @@ cargo fmt --all --check
 - `#[entity_api]` (feature `macros`) — generates a context. Error
   policies and application stacks stay handwritten.
 - `CanCreateByDto` / `CanUpdateDtoById` / `CanListDto` — blanket impls
-  over the `cgp-orm` resource service for a context whose input and
-  output are one DTO type. The DTO implements `HasId` once; a missing id
+  over the `cgp-orm` resource service for a context whose create input,
+  update input, and output are one DTO type. The DTO implements `HasId` once; a missing id
   is `cgp-orm`'s `ErrPrimaryKeyUnset`. No per-context impl. See
   [DTO envelopes](#dto-envelopes).
 - `ResourceResponseList` — `data: Vec<T>` plus one optional list-level
@@ -170,6 +170,14 @@ let first_page = tags.list_dto(None, None).await?;          // CanListResources:
 A DTO without an id raises `ErrPrimaryKeyUnset` (`ApiError::PrimaryKeyUnset`,
 REST 400, gRPC `InvalidArgument`) without touching the database. `page`
 defaults to 1; `size` of `None` or `0` uses the pagination policy default.
+
+The three methods come as a set: each blanket impl requires
+`CreateInput = UpdateInput = Output = Dto` where it uses them, and
+`list_dto` requires all three even though it only returns `Output`.
+`list_dto` drops the page metadata (`page`, `size`, `total`) and skips
+`COUNT(*)`, so a context with distinct create / update / output types
+(`UserApp`, `PostApp` in `examples/blog`) does not get it and lists with
+`CanListResources::list`, which returns the whole `Page`.
 
 ## Dispatch and allocation
 

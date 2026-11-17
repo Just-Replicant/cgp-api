@@ -139,6 +139,14 @@ The adapters only forward:
   `None`/`0` is the pagination policy default, and the request skips
   `COUNT(*)` because only `items` is returned.
 
+The three methods appear together, on envelope contexts only:
+`list_dto` is bounded on `CreateInput = UpdateInput = Output = Dto`, not
+just `Output`. Dropping `page` / `size` / `total` is the right trade for
+an envelope caller; a context with distinct create / update / output
+types (`UserApp`, `PostApp`) keeps `list(PageRequest)` and its full
+`Page`. Tests assert at compile time that those contexts implement
+`CanListResources` but not `CanListDto`.
+
 `cgp-orm` stays unaware of DTO shape; the envelope type and its
 `HasId` impl belong to the application.
 

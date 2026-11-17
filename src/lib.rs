@@ -24,7 +24,8 @@
 //!   travel on `Err`, not in an error list. Not tied to protobuf.
 //! - **DTO-envelope CRUD** — [`CanCreateByDto`], [`CanUpdateDtoById`], and
 //!   [`CanListDto`], blanket-implemented over the `cgp-orm` resource
-//!   service for any context whose input and output are one DTO type. The
+//!   service for any context whose create input, update input, and output
+//!   are one DTO type (an envelope context). The
 //!   DTO implements [`HasId`] once; there is no per-context impl. See
 //!   [`dto_crud`].
 //! - **[`HasEntityName`]** — a generic routing/display name accessor.
