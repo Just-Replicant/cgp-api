@@ -11,10 +11,30 @@
 //! | [`CanUpdateDtoById::update_dto_by_id`] | [`CanUpdateResource::update`] | reads the id off the DTO through [`HasId`] |
 //! | [`CanListDto::list_dto`] | [`CanListResources::list`] | turns `page` / `size` into a [`PageRequest`] and drops the page metadata |
 //!
-//! Each trait has exactly one **blanket impl**. Any context whose
-//! resource-service input and output types are the same `Dto` gets the
-//! methods for free; there is no per-app impl to write, and `cgp-orm`
-//! stays unaware of the DTO shape.
+//! Each trait has exactly one **blanket impl**. A context whose
+//! `CreateInput`, `UpdateInput`, and `Output` are all the same `Dto` — an
+//! *envelope context* — gets all three methods for free; there is no
+//! per-app impl to write, and `cgp-orm` stays unaware of the DTO shape.
+//!
+//! # Which contexts get which method
+//!
+//! The three methods appear **together**, and only on envelope contexts.
+//! Each blanket impl pins every service type it relies on:
+//!
+//! | Method | `CreateInput` | `UpdateInput` | `Output` | Also |
+//! |---|---|---|---|---|
+//! | `create_by_dto` | `Dto` | — | `Dto` | [`CanCreateResource`] |
+//! | `update_dto_by_id` | — | `Dto` | `Dto` | [`CanUpdateResource`], `Dto:` [`HasId`] |
+//! | `list_dto` | `Dto` | `Dto` | `Dto` | [`CanListResources`] |
+//!
+//! `list_dto` only *reads* `Output`, but it is deliberately bounded on all
+//! three types. It drops the [`Page`](cgp_orm::pagination::Page) metadata
+//! (`page`, `size`, `total`) and skips `COUNT(*)`, which is the right
+//! trade for an envelope caller that only ever moves `Vec<Dto>`. A context
+//! with distinct create / update / output types (`UserApp` and `PostApp`
+//! in `examples/blog`) is not such a caller: it does **not** get
+//! `list_dto`, and keeps [`CanListResources::list`], which returns the
+//! whole page.
 //!
 //! The only DTO-specific piece is [`HasId`]: a blanket impl cannot see a
 //! field named `id`, so the envelope type implements [`HasId`] once, in the
@@ -69,6 +89,10 @@ use sea_orm::{EntityTrait, Iterable, PrimaryKeyToColumn};
 ///
 /// Implement it once for the envelope type. `None` means "no id" (a create
 /// payload, or a malformed update).
+///
+/// The orphan rule puts the impl in the crate that defines the envelope
+/// type (for a generated protobuf type, the crate that owns the generated
+/// code, typically behind an optional `cgp-api` feature).
 ///
 /// ```
 /// use cgp_api::prelude::HasId;
@@ -195,7 +219,10 @@ where
 /// List one page of DTOs.
 ///
 /// Blanket-implemented for every [`CanListResources`] context whose
-/// `Output` is `Dto`.
+/// `CreateInput`, `UpdateInput`, and `Output` are all `Dto` — the same
+/// envelope contexts that get [`CanCreateByDto`] and [`CanUpdateDtoById`].
+/// Any other context lists through [`CanListResources::list`], which keeps
+/// the page metadata (see the [module docs](self#which-contexts-get-which-method)).
 pub trait CanListDto<Dto>: HasErrorType {
     /// Build a [`PageRequest`] and forward to [`CanListResources::list`].
     ///
@@ -213,7 +240,11 @@ pub trait CanListDto<Dto>: HasErrorType {
 
 impl<App, Dto> CanListDto<Dto> for App
 where
-    App: CanListResources + HasOutputType<Output = Dto> + Sync,
+    App: CanListResources
+        + HasCreateInputType<CreateInput = Dto>
+        + HasUpdateInputType<UpdateInput = Dto>
+        + HasOutputType<Output = Dto>
+        + Sync,
 {
     async fn list_dto(
         &self,
@@ -412,6 +443,114 @@ mod tests {
                 <ApiErrors as DelegateComponent<ErrorRaiserComponent>>::Delegate,
             EntityTypeProviderComponent: UseType<pair::Entity>,
         }
+    }
+
+    /// A create input that is not the envelope.
+    #[derive(Debug)]
+    struct CreateTag;
+
+    /// An update input that is not the envelope.
+    #[derive(Debug)]
+    struct UpdateTag;
+
+    /// `Output = TagDto`, but create and update take their own structs, like
+    /// `UserApp` / `PostApp` in `examples/blog`.
+    struct SplitApp;
+
+    /// `CreateInput = Output = TagDto`, but a distinct update input: the
+    /// update bound alone must keep `list_dto` away.
+    struct HalfEnvelopeApp;
+
+    struct EmptyList;
+
+    #[cgp_provider(ListResourcesComponent)]
+    impl<App> ListResources<App> for EmptyList
+    where
+        App: HasOutputType<Output = TagDto> + HasErrorType<Error = ApiError> + Sync,
+    {
+        async fn list(_context: &App, request: PageRequest) -> Result<Page<TagDto>, ApiError> {
+            Ok(Page {
+                items: Vec::new(),
+                page: request.page.max(1),
+                size: request.size,
+                total: Some(0),
+            })
+        }
+    }
+
+    delegate_components! {
+        #[unchecked]
+        SplitApp {
+            ErrorTypeProviderComponent:
+                <ApiErrors as DelegateComponent<ErrorTypeProviderComponent>>::Delegate,
+            ErrorRaiserComponent:
+                <ApiErrors as DelegateComponent<ErrorRaiserComponent>>::Delegate,
+            EntityTypeProviderComponent: UseType<tag::Entity>,
+            CreateInputTypeProviderComponent: UseType<CreateTag>,
+            UpdateInputTypeProviderComponent: UseType<UpdateTag>,
+            OutputTypeProviderComponent: UseType<TagDto>,
+            ListResourcesComponent: EmptyList,
+        }
+    }
+
+    delegate_components! {
+        #[unchecked]
+        HalfEnvelopeApp {
+            ErrorTypeProviderComponent:
+                <ApiErrors as DelegateComponent<ErrorTypeProviderComponent>>::Delegate,
+            ErrorRaiserComponent:
+                <ApiErrors as DelegateComponent<ErrorRaiserComponent>>::Delegate,
+            EntityTypeProviderComponent: UseType<tag::Entity>,
+            CreateInputTypeProviderComponent: UseType<TagDto>,
+            UpdateInputTypeProviderComponent: UseType<UpdateTag>,
+            OutputTypeProviderComponent: UseType<TagDto>,
+            ListResourcesComponent: EmptyList,
+        }
+    }
+
+    /// Fails to compile when `$ty` implements the trait: two candidate
+    /// impls make the inferred `_` ambiguous (the `static_assertions`
+    /// `assert_not_impl_any!` technique, without the dependency).
+    macro_rules! assert_not_impl {
+        ($ty:ty: $($bound:tt)+) => {
+            const _: fn() = || {
+                trait AmbiguousIfImpl<A> {
+                    fn some_item() {}
+                }
+                impl<T: ?Sized> AmbiguousIfImpl<()> for T {}
+                struct Invalid;
+                impl<T: ?Sized + $($bound)+> AmbiguousIfImpl<Invalid> for T {}
+                let _ = <$ty as AmbiguousIfImpl<_>>::some_item;
+            };
+        };
+    }
+
+    // Envelope context: all three methods.
+    const _: fn() = || {
+        fn envelope<App>()
+        where
+            App: CanCreateByDto<TagDto> + CanUpdateDtoById<TagDto> + CanListDto<TagDto>,
+        {
+        }
+        envelope::<MockApp>();
+    };
+
+    // Not an envelope: the context can list pages, but has no `list_dto`.
+    const _: fn() = || {
+        fn lists<App: CanListResources>() {}
+        lists::<SplitApp>();
+        lists::<HalfEnvelopeApp>();
+    };
+    assert_not_impl!(SplitApp: CanListDto<TagDto>);
+    assert_not_impl!(HalfEnvelopeApp: CanListDto<TagDto>);
+    assert_not_impl!(SplitApp: CanCreateByDto<TagDto>);
+    assert_not_impl!(HalfEnvelopeApp: CanUpdateDtoById<TagDto>);
+
+    #[tokio::test]
+    async fn split_context_lists_through_the_page_api() {
+        let page = SplitApp.list(PageRequest::new(1, 5)).await.unwrap();
+        assert_eq!((page.page, page.size, page.total), (1, 5, Some(0)));
+        assert!(page.items.is_empty());
     }
 
     fn assert_send<F: Future + Send>(future: F) -> F {
