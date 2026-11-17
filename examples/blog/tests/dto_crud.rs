@@ -122,6 +122,51 @@ async fn list_dto_pages_with_policy_defaults() {
     );
 }
 
+/// Fails to compile when `$ty` implements the trait: two candidate impls
+/// make the inferred `_` ambiguous (the `static_assertions`
+/// `assert_not_impl_any!` technique, without the dependency).
+macro_rules! assert_not_impl {
+    ($ty:ty: $($bound:tt)+) => {
+        const _: fn() = || {
+            trait AmbiguousIfImpl<A> {
+                fn some_item() {}
+            }
+            impl<T: ?Sized> AmbiguousIfImpl<()> for T {}
+            struct Invalid;
+            impl<T: ?Sized + $($bound)+> AmbiguousIfImpl<Invalid> for T {}
+            let _ = <$ty as AmbiguousIfImpl<_>>::some_item;
+        };
+    };
+}
+
+/// Only an envelope context gets the envelope methods. `UserApp` and
+/// `PostApp` share `Output` with nothing else (distinct create / update
+/// structs), so `list_dto` — which would drop the page and skip the
+/// count — is not available; they list through `CanListResources::list`.
+mod envelope_only {
+    use blog_example::{PostApp, PostOutput, TagApp, TagDto, UserApp, UserOutput};
+    use cgp_api::prelude::*;
+    use cgp_orm::components::service::CanListResources;
+
+    const _: fn() = || {
+        fn envelope<App>()
+        where
+            App: CanCreateByDto<TagDto> + CanUpdateDtoById<TagDto> + CanListDto<TagDto>,
+        {
+        }
+        envelope::<TagApp>();
+
+        fn pages<App: CanListResources>() {}
+        pages::<UserApp>();
+        pages::<PostApp>();
+    };
+
+    assert_not_impl!(UserApp: CanListDto<UserOutput>);
+    assert_not_impl!(PostApp: CanListDto<PostOutput>);
+    assert_not_impl!(UserApp: CanCreateByDto<UserOutput>);
+    assert_not_impl!(PostApp: CanUpdateDtoById<PostOutput>);
+}
+
 /// The futures cross threads, which `flutter_rust_bridge` requires.
 #[tokio::test]
 async fn futures_are_send() {
