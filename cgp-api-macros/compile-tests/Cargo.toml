@@ -14,11 +14,11 @@ rest = ["cgp-api/rest"]
 grpc = ["cgp-api/grpc"]
 
 [dependencies]
-cgp-api = { path = "../..", version = "0.1.3", default-features = false, features = ["macros", "thiserror"] }
+cgp-api = { path = "../..", version = "0.1.4", default-features = false, features = ["macros", "thiserror"] }
 cgp-fork = "1.1"
 cgp-orm = "0.1"
 sea-orm = { version = "2", default-features = false, features = ["macros"] }
 thiserror = "2"
 
 [dev-dependencies]
-cgp-api = { path = "../..", version = "0.1.3", default-features = false, features = ["macros", "thiserror", "rest", "grpc"] }
+cgp-api = { path = "../..", version = "0.1.4", default-features = false, features = ["macros", "thiserror", "rest", "grpc"] }
