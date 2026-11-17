@@ -14,8 +14,6 @@ not own architecture.**
 Depends on [`cgp-orm`](https://crates.io/crates/cgp-orm). Publish
 `cgp-orm` to crates.io first, then this crate. Full design:
 [ARCHITECTURE.md](https://github.com/Just-Replicant/cgp-api/blob/main/ARCHITECTURE.md).
-Adopting the split from an earlier mixed layout:
-[MIGRATION.md](https://github.com/Just-Replicant/cgp-api/blob/main/MIGRATION.md).
 
 ## Features
 

@@ -31,6 +31,11 @@
   the page; they use `CanListResources::list`. Compile-time tests lock
   this in.
 
+### Removed
+
+- `MIGRATION.md` and the `cgp_api::migration` docs module that included
+  it. Links from the README and crate docs are gone.
+
 
 ## [0.1.2](https://github.com/Just-Replicant/cgp-api/compare/v0.1.1...v0.1.2) - 2026-11-13
 

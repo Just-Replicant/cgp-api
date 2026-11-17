@@ -43,10 +43,7 @@
 //! architecture.**
 //!
 //! Full design: <https://github.com/Just-Replicant/cgp-api/blob/main/ARCHITECTURE.md>
-//! (also included as [`architecture`]). Adopting the split from an earlier
-//! mixed layout:
-//! <https://github.com/Just-Replicant/cgp-api/blob/main/MIGRATION.md>
-//! (also included as [`migration`]).
+//! (also included as [`architecture`]).
 //!
 //! [`HasEntityName`] is a compile-time `&'static str` literal. This crate
 //! does not authenticate, and a live `db_conn` behind a route is full
@@ -84,7 +81,3 @@ pub use cgp_api_macros::entity_api;
 /// Architecture of `cgp-api` (the repository `ARCHITECTURE.md`).
 #[doc = include_str!("../ARCHITECTURE.md")]
 pub mod architecture {}
-
-/// Migrating to `cgp-orm` + `cgp-api` (the repository `MIGRATION.md`).
-#[doc = include_str!("../MIGRATION.md")]
-pub mod migration {}
